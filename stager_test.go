@@ -1,4 +1,4 @@
-package local_test
+package forge_test
 
 import (
 	"bytes"
