@@ -17,11 +17,11 @@ import (
 	"io/ioutil"
 
 	"github.com/onsi/gomega/gbytes"
-	"github.com/sclevine/cflocal/engine"
-	"github.com/sclevine/cflocal/fixtures"
-	. "github.com/sclevine/cflocal/local"
-	"github.com/sclevine/cflocal/local/mocks"
-	"github.com/sclevine/cflocal/service"
+	"github.com/sclevine/forge/engine"
+	"github.com/sclevine/forge/fixtures"
+	. "github.com/sclevine/forge"
+	"github.com/sclevine/forge/mocks"
+	"github.com/sclevine/forge/service"
 )
 
 var _ = Describe("Forwarder", func() {

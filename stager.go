@@ -15,9 +15,9 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/strslice"
 
-	"github.com/sclevine/cflocal/engine"
-	"github.com/sclevine/cflocal/local/version"
-	"github.com/sclevine/cflocal/service"
+	"github.com/sclevine/forge/engine"
+	"github.com/sclevine/forge/version"
+	"github.com/sclevine/forge/service"
 )
 
 const StagerScript = `

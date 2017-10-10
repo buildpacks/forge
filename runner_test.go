@@ -12,12 +12,12 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/sclevine/cflocal/engine"
-	"github.com/sclevine/cflocal/fixtures"
-	. "github.com/sclevine/cflocal/local"
-	"github.com/sclevine/cflocal/local/mocks"
+	"github.com/sclevine/forge/engine"
+	"github.com/sclevine/forge/fixtures"
+	. "github.com/sclevine/forge"
+	"github.com/sclevine/forge/mocks"
 	sharedmocks "github.com/sclevine/cflocal/mocks"
-	"github.com/sclevine/cflocal/service"
+	"github.com/sclevine/forge/service"
 )
 
 var _ = Describe("Runner", func() {

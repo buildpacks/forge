@@ -13,8 +13,8 @@ import (
 	"github.com/docker/docker/api/types/strslice"
 	"github.com/docker/go-connections/nat"
 
-	"github.com/sclevine/cflocal/engine"
-	"github.com/sclevine/cflocal/service"
+	"github.com/sclevine/forge/engine"
+	"github.com/sclevine/forge/service"
 )
 
 const RunnerScript = `

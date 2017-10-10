@@ -6,21 +6,21 @@ import (
 
 	"github.com/docker/docker/api/types/container"
 
-	"github.com/sclevine/cflocal/engine"
+	"github.com/sclevine/forge/engine"
 )
 
-//go:generate mockgen -package mocks -destination mocks/versioner.go github.com/sclevine/cflocal/local Versioner
+//go:generate mockgen -package mocks -destination mocks/versioner.go github.com/sclevine/forge Versioner
 type Versioner interface {
 	Build(tmplURL, versionURL string) (string, error)
 }
 
-//go:generate mockgen -package mocks -destination mocks/image.go github.com/sclevine/cflocal/local Image
+//go:generate mockgen -package mocks -destination mocks/image.go github.com/sclevine/forge Image
 type Image interface {
 	Pull(image string) <-chan engine.Progress
 	Build(tag string, dockerfile engine.Stream) <-chan engine.Progress
 }
 
-//go:generate mockgen -package mocks -destination mocks/container.go github.com/sclevine/cflocal/local Container
+//go:generate mockgen -package mocks -destination mocks/container.go github.com/sclevine/forge Container
 type Container interface {
 	io.Closer
 	ID() string
@@ -34,7 +34,7 @@ type Container interface {
 	CopyFrom(path string) (engine.Stream, error)
 }
 
-//go:generate mockgen -package mocks -destination mocks/engine.go github.com/sclevine/cflocal/local Engine
+//go:generate mockgen -package mocks -destination mocks/engine.go github.com/sclevine/forge Engine
 type Engine interface {
 	NewContainer(config *container.Config, hostConfig *container.HostConfig) (Container, error)
 }

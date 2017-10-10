@@ -4,7 +4,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/sclevine/cflocal/service"
+	"github.com/sclevine/forge/service"
 	yaml "gopkg.in/yaml.v2"
 )
 

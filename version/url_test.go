@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	. "github.com/sclevine/cflocal/local/version"
+	. "github.com/sclevine/forge/version"
 )
 
 var _ = Describe("URL", func() {

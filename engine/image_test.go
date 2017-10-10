@@ -11,7 +11,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	. "github.com/sclevine/cflocal/engine"
+	. "github.com/sclevine/forge/engine"
 )
 
 var _ = Describe("Image", func() {

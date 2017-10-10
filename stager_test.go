@@ -11,19 +11,19 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/sclevine/cflocal/engine"
-	"github.com/sclevine/cflocal/fixtures"
-	. "github.com/sclevine/cflocal/local"
-	"github.com/sclevine/cflocal/local/mocks"
+	"github.com/sclevine/forge/engine"
+	"github.com/sclevine/forge/fixtures"
+	. "github.com/sclevine/forge"
+	"github.com/sclevine/forge/mocks"
 	sharedmocks "github.com/sclevine/cflocal/mocks"
-	"github.com/sclevine/cflocal/service"
+	"github.com/sclevine/forge/service"
 )
 
 var _ = Describe("Stager", func() {
 	var (
 		stager        *Stager
 		mockCtrl      *gomock.Controller
-		mockUI        *sharedmocks.MockUI
+		mockLoader    *sharedmocks.MockLoader
 		mockEngine    *mocks.MockEngine
 		mockImage     *mocks.MockImage
 		mockVersioner *mocks.MockVersioner
@@ -33,7 +33,7 @@ var _ = Describe("Stager", func() {
 
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
-		mockUI = sharedmocks.NewMockUI()
+		mockLoader = sharedmocks.NewMockLoader()
 		mockEngine = mocks.NewMockEngine(mockCtrl)
 		mockImage = mocks.NewMockImage(mockCtrl)
 		mockVersioner = mocks.NewMockVersioner(mockCtrl)
@@ -45,7 +45,7 @@ var _ = Describe("Stager", func() {
 			GoVersion:    "some-go-version",
 			StackVersion: "some-stack-version",
 			Logs:         logs,
-			Loader:       mockUI,
+			Loader:       mockLoader,
 			Engine:       mockEngine,
 			Image:        mockImage,
 			Versioner:    mockVersioner,
@@ -161,7 +161,7 @@ var _ = Describe("Stager", func() {
 			Expect(localCache.Result()).To(Equal("some-new-cache"))
 			Expect(remoteCache.Result()).To(BeEmpty())
 			Expect(logs.String()).To(Equal("some logs\nBuildpacks: some-buildpack-one, some-buildpack-two\n"))
-			Expect(mockUI.Progress).To(Receive(Equal(mockProgress{Value: "some-progress"})))
+			Expect(mockLoader.Progress).To(Receive(Equal(mockProgress{Value: "some-progress"})))
 		})
 
 		// TODO: test unavailable buildpack versions
@@ -212,7 +212,7 @@ var _ = Describe("Stager", func() {
 			)
 
 			Expect(stager.Download("/some-path")).To(Equal(stream))
-			Expect(mockUI.Progress).To(Receive(Equal(mockProgress{Value: "some-progress"})))
+			Expect(mockLoader.Progress).To(Receive(Equal(mockProgress{Value: "some-progress"})))
 		})
 	})
 })
