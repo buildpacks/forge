@@ -106,8 +106,8 @@ var _ = Describe("Stager", func() {
 				},
 			}
 
-			Expect(Buildpacks).NotTo(HaveLen(0))
-			for _, buildpack := range Buildpacks {
+			Expect(stager.SystemBuildpacks).NotTo(HaveLen(0))
+			for _, buildpack := range stager.SystemBuildpacks {
 				mockVersioner.EXPECT().Build(buildpack.URL, buildpack.VersionURL).Return(buildpack.Name+"-versioned-url", nil)
 			}
 
@@ -177,8 +177,8 @@ var _ = Describe("Stager", func() {
 			progress <- mockProgress{Value: "some-progress"}
 			close(progress)
 
-			Expect(Buildpacks).NotTo(HaveLen(0))
-			for _, buildpack := range Buildpacks {
+			Expect(stager.SystemBuildpacks).NotTo(HaveLen(0))
+			for _, buildpack := range stager.SystemBuildpacks {
 				mockVersioner.EXPECT().Build(buildpack.URL, buildpack.VersionURL).Return(buildpack.Name+"-versioned-url", nil)
 			}
 

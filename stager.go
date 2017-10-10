@@ -125,7 +125,7 @@ func (s *Stager) buildContainerConfig(config *AppConfig, buildpackMD5s []string,
 		detect     bool
 	)
 	if config.Buildpack == "" && len(config.Buildpacks) == 0 {
-		buildpacks = Buildpacks.names()
+		buildpacks = s.SystemBuildpacks.names()
 		detect = true
 	} else if len(config.Buildpacks) > 0 {
 		buildpacks = config.Buildpacks
