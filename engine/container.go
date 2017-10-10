@@ -195,7 +195,6 @@ func (c *Container) Commit(ref string) (imageID string, err error) {
 	ctx := context.Background()
 	response, err := c.Docker.ContainerCommit(ctx, c.id, types.ContainerCommitOptions{
 		Reference: ref,
-		Author:    "CF Local",
 		Pause:     true,
 		Config:    c.config,
 	})

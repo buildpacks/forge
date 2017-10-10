@@ -6,8 +6,9 @@
 
 Forge is a library for creating and running Cloud Foundry apps in Docker.
 
-## Security Notes
+## Notes
 
+* The API provided by Forge is not stable and may change without notice.
 * Forge is not yet intended for production use and is offered without warranty.
 
 ## TODO

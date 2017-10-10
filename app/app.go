@@ -1,4 +1,4 @@
-package fs
+package app
 
 import (
 	"io"
@@ -11,9 +11,9 @@ import (
 	"github.com/docker/docker/pkg/archive"
 )
 
-type FS struct{}
+type App struct{}
 
-func (f *FS) TarApp(path string) (app io.ReadCloser, err error) {
+func (a *App) Tar(path string) (app io.ReadCloser, err error) {
 	var absPath, appDir string
 
 	absPath, err = filepath.Abs(path)
@@ -23,7 +23,7 @@ func (f *FS) TarApp(path string) (app io.ReadCloser, err error) {
 
 	zipper := appfiles.ApplicationZipper{}
 	if zipper.IsZipFile(absPath) {
-		appDir, err = ioutil.TempDir("", "cflocal-zip")
+		appDir, err = ioutil.TempDir("", "forge-app-zip")
 		if err != nil {
 			return nil, err
 		}

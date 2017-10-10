@@ -279,7 +279,6 @@ var _ = Describe("Container", func() {
 			Expect(err).NotTo(HaveOccurred())
 			info.Config.Env = scrubEnv(info.Config.Env)
 			Expect(info.Config).To(Equal(config))
-			Expect(info.Author).To(Equal("CF Local"))
 			Expect(info.RepoTags[0]).To(Equal(ref + ":latest"))
 
 			config.Image = ref + ":latest"

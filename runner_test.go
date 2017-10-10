@@ -16,7 +16,7 @@ import (
 	"github.com/sclevine/forge/fixtures"
 	. "github.com/sclevine/forge"
 	"github.com/sclevine/forge/mocks"
-	sharedmocks "github.com/sclevine/cflocal/mocks"
+	sharedmocks "github.com/sclevine/forge/mocks"
 	"github.com/sclevine/forge/service"
 )
 

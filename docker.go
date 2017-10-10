@@ -9,7 +9,6 @@ import (
 
 const dockerfile = `
 FROM cloudfoundry/cflinuxfs2:{{.StackVersion}}
-MAINTAINER CF Local <cflocal@sclevine.org>
 
 RUN \
   apt-get update && \

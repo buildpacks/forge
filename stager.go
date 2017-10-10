@@ -16,8 +16,8 @@ import (
 	"github.com/docker/docker/api/types/strslice"
 
 	"github.com/sclevine/forge/engine"
-	"github.com/sclevine/forge/version"
 	"github.com/sclevine/forge/service"
+	"github.com/sclevine/forge/version"
 )
 
 const StagerScript = `
@@ -34,14 +34,15 @@ const StagerScript = `
 `
 
 type Stager struct {
-	DiegoVersion string
-	GoVersion    string
-	StackVersion string
-	Logs         io.Writer
-	Loader       Loader
-	Engine       Engine
-	Image        Image
-	Versioner    Versioner
+	DiegoVersion     string
+	GoVersion        string
+	StackVersion     string
+	SystemBuildpacks SystemBuildpacks
+	Logs             io.Writer
+	Loader           Loader
+	Engine           Engine
+	Image            Image
+	Versioner        Versioner
 }
 
 type StageConfig struct {
@@ -273,7 +274,7 @@ func (s *Stager) buildDockerfile() error {
 
 func (s *Stager) buildpacks() ([]buildpackInfo, error) {
 	var buildpacks []buildpackInfo
-	for _, buildpack := range Buildpacks {
+	for _, buildpack := range s.SystemBuildpacks {
 		url, err := s.Versioner.Build(buildpack.URL, buildpack.VersionURL)
 		if err != nil {
 			return nil, err
@@ -287,14 +288,4 @@ func (s *Stager) buildpacks() ([]buildpackInfo, error) {
 
 type buildpackInfo struct {
 	Name, URL, MD5 string
-}
-
-type BuildpackList []Buildpack
-
-func (b BuildpackList) names() []string {
-	var names []string
-	for _, bp := range b {
-		names = append(names, bp.Name)
-	}
-	return names
 }
