@@ -13,7 +13,7 @@ import (
 
 func TestLocal(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Local Suite")
+	RunSpecs(t, "Forge Suite")
 }
 
 func percentColor(format string, a ...interface{}) string {
