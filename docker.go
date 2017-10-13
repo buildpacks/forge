@@ -8,7 +8,7 @@ import (
 )
 
 const dockerfile = `
-FROM cloudfoundry/cflinuxfs2:{{.StackVersion}}
+FROM {{.Stack}}
 
 RUN \
   apt-get update && \

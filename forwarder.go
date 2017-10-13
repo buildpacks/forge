@@ -35,13 +35,13 @@ const ForwardScript = `
 `
 
 type Forwarder struct {
-	StackVersion string
-	Logs         io.Writer
-	Engine       Engine
+	Logs   io.Writer
+	Engine Engine
 }
 
 type ForwardConfig struct {
 	AppName          string
+	Stack            string
 	SSHPass          engine.Stream
 	Color            Colorizer
 	ForwardConfig    *service.ForwardConfig
@@ -65,7 +65,7 @@ func (f *Forwarder) Forward(config *ForwardConfig) (health <-chan string, done f
 	}
 
 	networkMode := "container:" + netContr.ID()
-	containerConfig, err := f.buildContainerConfig(config.ForwardConfig)
+	containerConfig, err := f.buildContainerConfig(config.ForwardConfig, config.Stack)
 	if err != nil {
 		return nil, nil, "", err
 	}
@@ -117,7 +117,7 @@ func (f *Forwarder) Forward(config *ForwardConfig) (health <-chan string, done f
 	return contr.HealthCheck(), done, netContr.ID(), nil
 }
 
-func (f *Forwarder) buildContainerConfig(forwardConfig *service.ForwardConfig) (*container.Config, error) {
+func (f *Forwarder) buildContainerConfig(forwardConfig *service.ForwardConfig, stack string) (*container.Config, error) {
 	scriptBuf := &bytes.Buffer{}
 	tmpl := template.Must(template.New("").Parse(ForwardScript))
 	if err := tmpl.Execute(scriptBuf, forwardConfig); err != nil {
@@ -131,19 +131,19 @@ func (f *Forwarder) buildContainerConfig(forwardConfig *service.ForwardConfig) (
 			Interval: time.Second,
 			Retries:  30,
 		},
-		Image: "cloudfoundry/cflinuxfs2:" + f.StackVersion,
+		Image: stack,
 		Entrypoint: strslice.StrSlice{
 			"/bin/bash", "-c", scriptBuf.String(),
 		},
 	}, nil
 }
 
-func (f *Forwarder) buildNetContainerConfig(name string) *container.Config {
+func (f *Forwarder) buildNetContainerConfig(name string, stack string) *container.Config {
 	return &container.Config{
 		Hostname:     name,
 		User:         "vcap",
 		ExposedPorts: nat.PortSet{"8080/tcp": {}},
-		Image:        "cloudfoundry/cflinuxfs2:" + f.StackVersion,
+		Image:        stack,
 		Entrypoint: strslice.StrSlice{
 			"tail", "-f", "/dev/null",
 		},

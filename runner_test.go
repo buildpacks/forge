@@ -12,9 +12,9 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	. "github.com/sclevine/forge"
 	"github.com/sclevine/forge/engine"
 	"github.com/sclevine/forge/fixtures"
-	. "github.com/sclevine/forge"
 	"github.com/sclevine/forge/mocks"
 	sharedmocks "github.com/sclevine/forge/mocks"
 	"github.com/sclevine/forge/service"
@@ -38,11 +38,10 @@ var _ = Describe("Runner", func() {
 		mockContainer = mocks.NewMockContainer(mockCtrl)
 
 		runner = &Runner{
-			StackVersion: "some-stack-version",
-			Logs:         bytes.NewBufferString("some-logs"),
-			Loader:       mockUI,
-			Engine:       mockEngine,
-			Image:        mockImage,
+			Logs:   bytes.NewBufferString("some-logs"),
+			Loader: mockUI,
+			Engine: mockEngine,
+			Image:  mockImage,
 		}
 	})
 
@@ -58,6 +57,7 @@ var _ = Describe("Runner", func() {
 			config := &RunConfig{
 				Droplet:  engine.NewStream(mockReadCloser{Value: "some-droplet"}, 100),
 				Launcher: engine.NewStream(mockReadCloser{Value: "some-launcher"}, 200),
+				Stack:    "some-stack",
 				AppDir:   "some-app-dir",
 				RSync:    true,
 				Restart:  make(<-chan time.Time),
@@ -90,7 +90,7 @@ var _ = Describe("Runner", func() {
 				},
 			}
 			gomock.InOrder(
-				mockImage.EXPECT().Pull("cloudfoundry/cflinuxfs2:some-stack-version").Return(progress),
+				mockImage.EXPECT().Pull("some-stack").Return(progress),
 				mockEngine.EXPECT().NewContainer("some-name", gomock.Any(), gomock.Any()).Do(func(config *container.Config, hostConfig *container.HostConfig) {
 					Expect(config.Hostname).To(Equal("some-name"))
 					Expect(config.User).To(Equal("vcap"))
@@ -99,7 +99,7 @@ var _ = Describe("Runner", func() {
 					Expect(hasPort).To(BeTrue())
 					sort.Strings(config.Env)
 					Expect(config.Env).To(Equal(fixtures.ProvidedRunningEnv("LANG=some-lang")))
-					Expect(config.Image).To(Equal("cloudfoundry/cflinuxfs2:some-stack-version"))
+					Expect(config.Image).To(Equal("some-stack"))
 					Expect(config.WorkingDir).To(Equal("/home/vcap/app"))
 					Expect(config.Entrypoint).To(Equal(strslice.StrSlice{
 						"/bin/bash", "-c", fixtures.RunRSyncScript(), "some-command",
@@ -140,6 +140,7 @@ var _ = Describe("Runner", func() {
 			config := &ExportConfig{
 				Droplet:  engine.NewStream(mockReadCloser{Value: "some-droplet"}, 100),
 				Launcher: engine.NewStream(mockReadCloser{Value: "some-launcher"}, 200),
+				Stack:    "some-stack",
 				Ref:      "some-ref",
 				AppConfig: &AppConfig{
 					Name:      "some-name",
@@ -165,7 +166,7 @@ var _ = Describe("Runner", func() {
 				},
 			}
 			gomock.InOrder(
-				mockImage.EXPECT().Pull("cloudfoundry/cflinuxfs2:some-stack-version").Return(progress),
+				mockImage.EXPECT().Pull("some-stack").Return(progress),
 				mockEngine.EXPECT().NewContainer("some-name", gomock.Any(), gomock.Any()).Do(func(config *container.Config, hostConfig *container.HostConfig) {
 					Expect(config.Hostname).To(Equal("some-name"))
 					Expect(config.User).To(Equal("vcap"))
@@ -174,7 +175,7 @@ var _ = Describe("Runner", func() {
 					Expect(hasPort).To(BeTrue())
 					sort.Strings(config.Env)
 					Expect(config.Env).To(Equal(fixtures.ProvidedRunningEnv("LANG=some-lang")))
-					Expect(config.Image).To(Equal("cloudfoundry/cflinuxfs2:some-stack-version"))
+					Expect(config.Image).To(Equal("some-stack"))
 					Expect(config.Entrypoint).To(Equal(strslice.StrSlice{
 						"/bin/bash", "-c", fixtures.CommitScript(), "some-command",
 					}))

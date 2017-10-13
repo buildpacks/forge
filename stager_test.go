@@ -43,7 +43,6 @@ var _ = Describe("Stager", func() {
 		stager = &Stager{
 			DiegoVersion: "some-diego-version",
 			GoVersion:    "some-go-version",
-			StackVersion: "some-stack-version",
 			ImageTag:     "some-tag",
 			Logs:         logs,
 			Loader:       mockLoader,
@@ -78,6 +77,7 @@ var _ = Describe("Stager", func() {
 					"some-checksum-one": buildpackZipStream1,
 					"some-checksum-two": buildpackZipStream2,
 				},
+				Stack:  "some-stack",
 				AppDir: "some-app-dir",
 				RSync:  true,
 				Color:  percentColor,
@@ -119,7 +119,7 @@ var _ = Describe("Stager", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(dockerfile.Size).To(Equal(int64(len(dfBytes))))
-					Expect(dfBytes).To(ContainSubstring("FROM cloudfoundry/cflinuxfs2:some-stack-version"))
+					Expect(dfBytes).To(ContainSubstring("FROM some-stack"))
 					Expect(dfBytes).To(ContainSubstring("gosome-go-version.linux-amd64"))
 					Expect(dfBytes).To(ContainSubstring(`git checkout "vsome-diego-version"`))
 					Expect(dfBytes).To(ContainSubstring(`"go_buildpack-versioned-url"`))
@@ -190,7 +190,7 @@ var _ = Describe("Stager", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(dockerfile.Size).To(Equal(int64(len(dfBytes))))
-					Expect(dfBytes).To(ContainSubstring("FROM cloudfoundry/cflinuxfs2:some-stack-version"))
+					Expect(dfBytes).To(ContainSubstring("some-stack"))
 					Expect(dfBytes).To(ContainSubstring("gosome-go-version.linux-amd64"))
 					Expect(dfBytes).To(ContainSubstring(`git checkout "vsome-diego-version"`))
 					Expect(dfBytes).To(ContainSubstring(`"go_buildpack-versioned-url"`))
@@ -212,7 +212,7 @@ var _ = Describe("Stager", func() {
 				mockContainer.EXPECT().CloseAfterStream(&stream),
 			)
 
-			Expect(stager.Download("/some-path")).To(Equal(stream))
+			Expect(stager.Download("/some-path", "some-stack")).To(Equal(stream))
 			Expect(mockLoader.Progress).To(Receive(Equal(mockProgress{Value: "some-progress"})))
 		})
 	})

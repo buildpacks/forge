@@ -40,16 +40,16 @@ const RunnerScript = `
 `
 
 type Runner struct {
-	StackVersion string
-	Logs         io.Writer
-	Loader       Loader
-	Engine       Engine
-	Image        Image
+	Logs   io.Writer
+	Loader Loader
+	Engine Engine
+	Image  Image
 }
 
 type RunConfig struct {
 	Droplet       engine.Stream
 	Launcher      engine.Stream
+	Stack         string
 	AppDir        string
 	RSync         bool
 	Restart       <-chan time.Time
@@ -59,12 +59,12 @@ type RunConfig struct {
 }
 
 func (r *Runner) Run(config *RunConfig) (status int64, err error) {
-	if err := r.pull(); err != nil {
+	if err := r.pull(config.Stack); err != nil {
 		return 0, err
 	}
 
 	r.setDefaults(config.AppConfig)
-	containerConfig, err := r.buildContainerConfig(config.AppConfig, config.RSync, config.NetworkConfig.ContainerID != "")
+	containerConfig, err := r.buildContainerConfig(config.AppConfig, config.Stack, config.RSync, config.NetworkConfig.ContainerID != "")
 	if err != nil {
 		return 0, err
 	}
@@ -95,17 +95,18 @@ func (r *Runner) Run(config *RunConfig) (status int64, err error) {
 type ExportConfig struct {
 	Droplet   engine.Stream
 	Launcher  engine.Stream
+	Stack     string
 	Ref       string
 	AppConfig *AppConfig
 }
 
 func (r *Runner) Export(config *ExportConfig) (imageID string, err error) {
-	if err := r.pull(); err != nil {
+	if err := r.pull(config.Stack); err != nil {
 		return "", err
 	}
 
 	r.setDefaults(config.AppConfig)
-	containerConfig, err := r.buildContainerConfig(config.AppConfig, false, false)
+	containerConfig, err := r.buildContainerConfig(config.AppConfig, config.Stack, false, false)
 	if err != nil {
 		return "", err
 	}
@@ -125,8 +126,8 @@ func (r *Runner) Export(config *ExportConfig) (imageID string, err error) {
 	return contr.Commit(config.Ref)
 }
 
-func (r *Runner) pull() error {
-	return r.Loader.Loading("Image", r.Image.Pull(fmt.Sprintf("cloudfoundry/cflinuxfs2:%s", r.StackVersion)))
+func (r *Runner) pull(stack string) error {
+	return r.Loader.Loading("Image", r.Image.Pull(stack))
 }
 
 func (r *Runner) setDefaults(config *AppConfig) {
@@ -138,7 +139,7 @@ func (r *Runner) setDefaults(config *AppConfig) {
 	}
 }
 
-func (r *Runner) buildContainerConfig(config *AppConfig, rsync, networked bool) (*container.Config, error) {
+func (r *Runner) buildContainerConfig(config *AppConfig, stack string, rsync, networked bool) (*container.Config, error) {
 	name := config.Name
 	memory, err := formatters.ToMegabytes(config.Memory)
 	if err != nil {
@@ -216,7 +217,7 @@ func (r *Runner) buildContainerConfig(config *AppConfig, rsync, networked bool) 
 		User:         "vcap",
 		ExposedPorts: ports,
 		Env:          mapToEnv(mergeMaps(env, config.RunningEnv, config.Env)),
-		Image:        "cloudfoundry/cflinuxfs2:" + r.StackVersion,
+		Image:        stack,
 		WorkingDir:   "/home/vcap/app",
 		Entrypoint: strslice.StrSlice{
 			"/bin/bash", "-c", scriptBuf.String(), config.Command,

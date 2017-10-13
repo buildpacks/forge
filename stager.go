@@ -36,7 +36,6 @@ const StagerScript = `
 type Stager struct {
 	DiegoVersion     string
 	GoVersion        string
-	StackVersion     string
 	ImageTag         string
 	SystemBuildpacks SystemBuildpacks
 	Logs             io.Writer
@@ -51,6 +50,7 @@ type StageConfig struct {
 	Cache         ReadResetWriter
 	CacheEmpty    bool
 	BuildpackZips map[string]engine.Stream
+	Stack         string
 	AppDir        string
 	ForceDetect   bool
 	RSync         bool
@@ -226,8 +226,8 @@ func streamOut(contr Container, out io.Writer, path string) error {
 	return stream.Out(out)
 }
 
-func (s *Stager) Download(path string) (stream engine.Stream, err error) {
-	if err := s.buildDockerfile(); err != nil {
+func (s *Stager) Download(path string, stack string) (stream engine.Stream, err error) {
+	if err := s.buildDockerfile(stack); err != nil {
 		return engine.Stream{}, err
 	}
 	containerConfig := &container.Config{
@@ -244,7 +244,7 @@ func (s *Stager) Download(path string) (stream engine.Stream, err error) {
 	return contr.CopyFrom(path)
 }
 
-func (s *Stager) buildDockerfile() error {
+func (s *Stager) buildDockerfile(stack string) error {
 	buildpacks, err := s.buildpacks()
 	if err == version.ErrNetwork || err == version.ErrUnavailable {
 		fmt.Fprintln(s.Logs, "Warning: cannot build image: ", err)
@@ -257,12 +257,12 @@ func (s *Stager) buildDockerfile() error {
 	dockerfileData := struct {
 		DiegoVersion string
 		GoVersion    string
-		StackVersion string
+		Stack        string
 		Buildpacks   []buildpackInfo
 	}{
 		s.DiegoVersion,
 		s.GoVersion,
-		s.StackVersion,
+		stack,
 		buildpacks,
 	}
 	dockerfileTmpl := template.Must(template.New("Dockerfile").Parse(dockerfile))

@@ -17,9 +17,9 @@ import (
 	"io/ioutil"
 
 	"github.com/onsi/gomega/gbytes"
+	. "github.com/sclevine/forge"
 	"github.com/sclevine/forge/engine"
 	"github.com/sclevine/forge/fixtures"
-	. "github.com/sclevine/forge"
 	"github.com/sclevine/forge/mocks"
 	"github.com/sclevine/forge/service"
 )
@@ -42,9 +42,8 @@ var _ = Describe("Forwarder", func() {
 		logs = gbytes.NewBuffer()
 
 		forwarder = &Forwarder{
-			StackVersion: "some-stack-version",
-			Logs:         logs,
-			Engine:       mockEngine,
+			Logs:   logs,
+			Engine: mockEngine,
 		}
 	})
 
@@ -59,6 +58,7 @@ var _ = Describe("Forwarder", func() {
 			codeIdx := 0
 			config := &ForwardConfig{
 				AppName: "some-name",
+				Stack:   "some-stack",
 				SSHPass: engine.NewStream(mockReadCloser{Value: "some-sshpass"}, 300),
 				Color:   percentColor,
 				ForwardConfig: &service.ForwardConfig{
@@ -92,7 +92,7 @@ var _ = Describe("Forwarder", func() {
 				Expect(config.ExposedPorts).To(HaveLen(1))
 				_, hasPort := config.ExposedPorts["8080/tcp"]
 				Expect(hasPort).To(BeTrue())
-				Expect(config.Image).To(Equal("cloudfoundry/cflinuxfs2:some-stack-version"))
+				Expect(config.Image).To(Equal("some-stack"))
 				Expect(config.Entrypoint).To(Equal(strslice.StrSlice{
 					"tail", "-f", "/dev/null",
 				}))
@@ -112,7 +112,7 @@ var _ = Describe("Forwarder", func() {
 					Interval: time.Second,
 					Retries:  30,
 				}))
-				Expect(config.Image).To(Equal("cloudfoundry/cflinuxfs2:some-stack-version"))
+				Expect(config.Image).To(Equal("some-stack"))
 				Expect(config.Entrypoint).To(Equal(strslice.StrSlice{
 					"/bin/bash", "-c", fixtures.ForwardScript(),
 				}))
