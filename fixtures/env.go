@@ -78,7 +78,7 @@ var runningEnv = map[string]string{
 	"TEST_RUNNING_ENV_KEY": "test-running-env-value",
 	"TMPDIR":               "/home/vcap/tmp",
 	"USER":                 "vcap",
-	"VCAP_APPLICATION":     `{"application_id":"01d31c12-d066-495e-aca2-8d3403165360","application_name":"some-app","application_uris":["localhost"],"application_version":"2b860df9-a0a1-474c-b02f-5985f53ea0bb","host":"0.0.0.0","instance_id":"999db41a-508b-46eb-74d8-6f9c06c006da","instance_index":0,"limits":{"disk":1024,"fds":16384,"mem":512},"name":"some-app","port":8080,"space_id":"18300c1c-1aa4-4ae7-81e6-ae59c6cdbaf1","space_name":"cflocal-space","uris":["localhost"],"version":"18300c1c-1aa4-4ae7-81e6-ae59c6cdbaf1"}`,
+	"VCAP_APPLICATION":     `{"application_id":"01d31c12-d066-495e-aca2-8d3403165360","application_name":"some-name","application_uris":["localhost"],"application_version":"2b860df9-a0a1-474c-b02f-5985f53ea0bb","host":"0.0.0.0","instance_id":"999db41a-508b-46eb-74d8-6f9c06c006da","instance_index":0,"limits":{"disk":1024,"fds":16384,"mem":512},"name":"some-name","port":8080,"space_id":"18300c1c-1aa4-4ae7-81e6-ae59c6cdbaf1","space_name":"some-name-space","uris":["localhost"],"version":"18300c1c-1aa4-4ae7-81e6-ae59c6cdbaf1"}`,
 	"VCAP_SERVICES":        `{"some-type":[{"name":"some-name","label":"","tags":null,"plan":"","credentials":null,"syslog_drain_url":null,"provider":null,"volume_mounts":null}]}`,
 }
 
@@ -95,12 +95,12 @@ var stagingEnv = map[string]string{
 	"TEST_ENV_KEY":         "test-env-value",
 	"TEST_STAGING_ENV_KEY": "test-staging-env-value",
 	"USER":                 "vcap",
-	"VCAP_APPLICATION":     `{"application_id":"01d31c12-d066-495e-aca2-8d3403165360","application_name":"some-app","application_uris":["localhost"],"application_version":"2b860df9-a0a1-474c-b02f-5985f53ea0bb","limits":{"disk":4096,"fds":16384,"mem":1024},"name":"some-app","space_id":"18300c1c-1aa4-4ae7-81e6-ae59c6cdbaf1","space_name":"cflocal-space","uris":["localhost"],"version":"18300c1c-1aa4-4ae7-81e6-ae59c6cdbaf1"}`,
+	"VCAP_APPLICATION":     `{"application_id":"01d31c12-d066-495e-aca2-8d3403165360","application_name":"some-name","application_uris":["localhost"],"application_version":"2b860df9-a0a1-474c-b02f-5985f53ea0bb","limits":{"disk":4096,"fds":16384,"mem":1024},"name":"some-name","space_id":"18300c1c-1aa4-4ae7-81e6-ae59c6cdbaf1","space_name":"some-name-space","uris":["localhost"],"version":"18300c1c-1aa4-4ae7-81e6-ae59c6cdbaf1"}`,
 	"VCAP_SERVICES":        `{"some-type":[{"name":"some-name","label":"","tags":null,"plan":"","credentials":null,"syslog_drain_url":null,"provider":null,"volume_mounts":null}]}`,
 }
 
 var shellEnv = map[string]string{
 	"_":        "/usr/bin/env",
 	"SHLVL":    "1",
-	"HOSTNAME": "cflocal",
+	"HOSTNAME": "some-name",
 }

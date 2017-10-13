@@ -55,7 +55,7 @@ func (f *Forwarder) Forward(config *ForwardConfig) (health <-chan string, done f
 	netHostConfig := &container.HostConfig{PortBindings: nat.PortMap{
 		"8080/tcp": {{HostIP: config.HostIP, HostPort: config.HostPort}},
 	}}
-	netContr, err := f.Engine.NewContainer(f.buildNetContainerConfig(), netHostConfig)
+	netContr, err := f.Engine.NewContainer("network", f.buildNetContainerConfig(config.AppName), netHostConfig)
 	if err != nil {
 		return nil, nil, "", err
 	}
@@ -70,7 +70,7 @@ func (f *Forwarder) Forward(config *ForwardConfig) (health <-chan string, done f
 		return nil, nil, "", err
 	}
 	hostConfig := &container.HostConfig{NetworkMode: container.NetworkMode(networkMode)}
-	contr, err := f.Engine.NewContainer(containerConfig, hostConfig)
+	contr, err := f.Engine.NewContainer("service", containerConfig, hostConfig)
 	if err != nil {
 		return nil, nil, "", err
 	}
@@ -138,9 +138,9 @@ func (f *Forwarder) buildContainerConfig(forwardConfig *service.ForwardConfig) (
 	}, nil
 }
 
-func (f *Forwarder) buildNetContainerConfig() *container.Config {
+func (f *Forwarder) buildNetContainerConfig(name string) *container.Config {
 	return &container.Config{
-		Hostname:     "cflocal",
+		Hostname:     name,
 		User:         "vcap",
 		ExposedPorts: nat.PortSet{"8080/tcp": {}},
 		Image:        "cloudfoundry/cflinuxfs2:" + f.StackVersion,

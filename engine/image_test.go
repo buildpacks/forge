@@ -61,7 +61,7 @@ var _ = Describe("Image", func() {
 
 			info.Config.Image = tag + ":latest"
 			info.Config.Entrypoint = strslice.StrSlice{"bash"}
-			contr, err := NewContainer(client, info.Config, nil)
+			contr, err := NewContainer(client, "some-name", info.Config, nil)
 			Expect(err).NotTo(HaveOccurred())
 			defer contr.Close()
 
@@ -157,7 +157,7 @@ var _ = Describe("Image", func() {
 
 			info.Config.Image = "sclevine/test:latest"
 			info.Config.Entrypoint = strslice.StrSlice{"sh"}
-			contr, err := NewContainer(client, info.Config, nil)
+			contr, err := NewContainer(client, "some-name", info.Config, nil)
 			Expect(err).NotTo(HaveOccurred())
 			defer contr.Close()
 

@@ -24,13 +24,13 @@ type Container struct {
 	config        *container.Config
 }
 
-func NewContainer(docker *docker.Client, config *container.Config, hostConfig *container.HostConfig) (*Container, error) {
+func NewContainer(docker *docker.Client, name string, config *container.Config, hostConfig *container.HostConfig) (*Container, error) {
 	uuid, err := gouuid.NewV4()
 	if err != nil {
 		return nil, err
 	}
 	ctx := context.Background()
-	response, err := docker.ContainerCreate(ctx, config, hostConfig, nil, fmt.Sprintf("cflocal-%s", uuid))
+	response, err := docker.ContainerCreate(ctx, config, hostConfig, nil, fmt.Sprintf("%s-%s", name, uuid))
 	if err != nil {
 		return nil, err
 	}

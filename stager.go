@@ -37,6 +37,7 @@ type Stager struct {
 	DiegoVersion     string
 	GoVersion        string
 	StackVersion     string
+	ImageTag         string
 	SystemBuildpacks SystemBuildpacks
 	Logs             io.Writer
 	Loader           Loader
@@ -81,7 +82,7 @@ func (s *Stager) Stage(config *StageConfig) (droplet engine.Stream, err error) {
 		remoteDir = "/tmp/local"
 	}
 	hostConfig := s.buildHostConfig(config.AppDir, remoteDir)
-	contr, err := s.Engine.NewContainer(containerConfig, hostConfig)
+	contr, err := s.Engine.NewContainer(config.AppConfig.Name+"-staging", containerConfig, hostConfig)
 	if err != nil {
 		return engine.Stream{}, err
 	}
@@ -152,7 +153,7 @@ func (s *Stager) buildContainerConfig(config *AppConfig, buildpackMD5s []string,
 		Limits:             map[string]int64{"fds": 16384, "mem": 1024, "disk": 4096},
 		Name:               config.Name,
 		SpaceID:            "18300c1c-1aa4-4ae7-81e6-ae59c6cdbaf1",
-		SpaceName:          "cflocal-space",
+		SpaceName:          config.Name + "-space",
 		URIs:               []string{"localhost"},
 		Version:            "18300c1c-1aa4-4ae7-81e6-ae59c6cdbaf1",
 	})
@@ -197,10 +198,10 @@ func (s *Stager) buildContainerConfig(config *AppConfig, buildpackMD5s []string,
 	}
 
 	return &container.Config{
-		Hostname:   "cflocal",
+		Hostname:   config.Name,
 		User:       "root",
 		Env:        mapToEnv(mergeMaps(env, config.StagingEnv, config.Env)),
-		Image:      "cflocal",
+		Image:      s.ImageTag,
 		WorkingDir: "/home/vcap",
 		Entrypoint: strslice.StrSlice{
 			"/bin/bash", "-c", scriptBuf.String(),
@@ -230,12 +231,12 @@ func (s *Stager) Download(path string) (stream engine.Stream, err error) {
 		return engine.Stream{}, err
 	}
 	containerConfig := &container.Config{
-		Hostname:   "cflocal",
+		Hostname:   "download",
 		User:       "root",
-		Image:      "cflocal",
+		Image:      s.ImageTag,
 		Entrypoint: strslice.StrSlice{"read"},
 	}
-	contr, err := s.Engine.NewContainer(containerConfig, nil)
+	contr, err := s.Engine.NewContainer("download", containerConfig, nil)
 	if err != nil {
 		return engine.Stream{}, err
 	}
@@ -269,7 +270,7 @@ func (s *Stager) buildDockerfile() error {
 		return err
 	}
 	dockerfileStream := engine.NewStream(ioutil.NopCloser(dockerfileBuf), int64(dockerfileBuf.Len()))
-	return s.Loader.Loading("Image", s.Image.Build("cflocal", dockerfileStream))
+	return s.Loader.Loading("Image", s.Image.Build(s.ImageTag, dockerfileStream))
 }
 
 func (s *Stager) buildpacks() ([]buildpackInfo, error) {

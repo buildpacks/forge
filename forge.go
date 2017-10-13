@@ -36,7 +36,7 @@ type Container interface {
 
 //go:generate mockgen -package mocks -destination mocks/engine.go github.com/sclevine/forge Engine
 type Engine interface {
-	NewContainer(config *container.Config, hostConfig *container.HostConfig) (Container, error)
+	NewContainer(name string, config *container.Config, hostConfig *container.HostConfig) (Container, error)
 }
 
 type Loader interface {

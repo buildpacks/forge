@@ -63,7 +63,7 @@ var _ = Describe("Runner", func() {
 				Restart:  make(<-chan time.Time),
 				Color:    percentColor,
 				AppConfig: &AppConfig{
-					Name:      "some-app",
+					Name:      "some-name",
 					Command:   "some-command",
 					Memory:    "512m",
 					DiskQuota: "1G",
@@ -91,8 +91,8 @@ var _ = Describe("Runner", func() {
 			}
 			gomock.InOrder(
 				mockImage.EXPECT().Pull("cloudfoundry/cflinuxfs2:some-stack-version").Return(progress),
-				mockEngine.EXPECT().NewContainer(gomock.Any(), gomock.Any()).Do(func(config *container.Config, hostConfig *container.HostConfig) {
-					Expect(config.Hostname).To(Equal("cflocal"))
+				mockEngine.EXPECT().NewContainer("some-name", gomock.Any(), gomock.Any()).Do(func(config *container.Config, hostConfig *container.HostConfig) {
+					Expect(config.Hostname).To(Equal("some-name"))
 					Expect(config.User).To(Equal("vcap"))
 					Expect(config.ExposedPorts).To(HaveLen(1))
 					_, hasPort := config.ExposedPorts["8080/tcp"]
@@ -117,7 +117,7 @@ var _ = Describe("Runner", func() {
 
 			gomock.InOrder(
 				mockContainer.EXPECT().
-					Start("[some-app] % ", runner.Logs, config.Restart).Return(int64(100), nil).
+					Start("[some-name] % ", runner.Logs, config.Restart).Return(int64(100), nil).
 					After(launcherCopy).
 					After(dropletCopy),
 				mockContainer.EXPECT().
@@ -142,7 +142,7 @@ var _ = Describe("Runner", func() {
 				Launcher: engine.NewStream(mockReadCloser{Value: "some-launcher"}, 200),
 				Ref:      "some-ref",
 				AppConfig: &AppConfig{
-					Name:      "some-app",
+					Name:      "some-name",
 					Command:   "some-command",
 					Memory:    "512m",
 					DiskQuota: "1G",
@@ -166,8 +166,8 @@ var _ = Describe("Runner", func() {
 			}
 			gomock.InOrder(
 				mockImage.EXPECT().Pull("cloudfoundry/cflinuxfs2:some-stack-version").Return(progress),
-				mockEngine.EXPECT().NewContainer(gomock.Any(), gomock.Any()).Do(func(config *container.Config, hostConfig *container.HostConfig) {
-					Expect(config.Hostname).To(Equal("cflocal"))
+				mockEngine.EXPECT().NewContainer("some-name", gomock.Any(), gomock.Any()).Do(func(config *container.Config, hostConfig *container.HostConfig) {
+					Expect(config.Hostname).To(Equal("some-name"))
 					Expect(config.User).To(Equal("vcap"))
 					Expect(config.ExposedPorts).To(HaveLen(1))
 					_, hasPort := config.ExposedPorts["8080/tcp"]

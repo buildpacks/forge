@@ -58,7 +58,7 @@ var _ = Describe("Forwarder", func() {
 			waiter := make(chan time.Time)
 			codeIdx := 0
 			config := &ForwardConfig{
-				AppName: "some-app",
+				AppName: "some-name",
 				SSHPass: engine.NewStream(mockReadCloser{Value: "some-sshpass"}, 300),
 				Color:   percentColor,
 				ForwardConfig: &service.ForwardConfig{
@@ -86,8 +86,8 @@ var _ = Describe("Forwarder", func() {
 				HostPort: "400",
 				Wait:     waiter,
 			}
-			mockEngine.EXPECT().NewContainer(gomock.Any(), gomock.Any()).Do(func(config *container.Config, hostConfig *container.HostConfig) {
-				Expect(config.Hostname).To(Equal("cflocal"))
+			mockEngine.EXPECT().NewContainer("some-name", gomock.Any(), gomock.Any()).Do(func(config *container.Config, hostConfig *container.HostConfig) {
+				Expect(config.Hostname).To(Equal("some-name"))
 				Expect(config.User).To(Equal("vcap"))
 				Expect(config.ExposedPorts).To(HaveLen(1))
 				_, hasPort := config.ExposedPorts["8080/tcp"]
@@ -104,7 +104,7 @@ var _ = Describe("Forwarder", func() {
 			background := mockNetContainer.EXPECT().Background()
 			mockNetContainer.EXPECT().ID().Return("some-id").AnyTimes()
 
-			mockEngine.EXPECT().NewContainer(gomock.Any(), gomock.Any()).Do(func(config *container.Config, hostConfig *container.HostConfig) {
+			mockEngine.EXPECT().NewContainer("some-name", gomock.Any(), gomock.Any()).Do(func(config *container.Config, hostConfig *container.HostConfig) {
 				Expect(config.User).To(Equal("vcap"))
 				Expect(config.ExposedPorts).To(BeEmpty())
 				Expect(config.Healthcheck).To(Equal(&container.HealthConfig{
@@ -134,7 +134,7 @@ var _ = Describe("Forwarder", func() {
 					defer stream.Close()
 					Expect(ioutil.ReadAll(stream)).To(Equal([]byte("some-code-1")))
 				}),
-				mockContainer.EXPECT().Start("[some-app tunnel] % ", gomock.Any(), nil).Do(func(_ string, output io.Writer, _ <-chan time.Time) {
+				mockContainer.EXPECT().Start("[some-name tunnel] % ", gomock.Any(), nil).Do(func(_ string, output io.Writer, _ <-chan time.Time) {
 					fmt.Fprint(output, "start-1")
 				}).Return(int64(100), nil),
 				mockContainer.EXPECT().CopyTo(gomock.Any(), "/tmp/ssh-code").Do(func(stream engine.Stream, _ string) {
@@ -142,7 +142,7 @@ var _ = Describe("Forwarder", func() {
 					defer stream.Close()
 					Expect(ioutil.ReadAll(stream)).To(Equal([]byte("some-code-2")))
 				}),
-				mockContainer.EXPECT().Start("[some-app tunnel] % ", gomock.Any(), nil).Do(func(_ string, output io.Writer, _ <-chan time.Time) {
+				mockContainer.EXPECT().Start("[some-name tunnel] % ", gomock.Any(), nil).Do(func(_ string, output io.Writer, _ <-chan time.Time) {
 					fmt.Fprint(output, "start-2")
 					done()
 				}).Return(int64(200), nil),
@@ -153,9 +153,9 @@ var _ = Describe("Forwarder", func() {
 			waiter <- time.Time{}
 			waiter <- time.Time{}
 
-			Eventually(logs).Should(gbytes.Say(`start-1\[some-app tunnel\] % Exited with status: 100`))
+			Eventually(logs).Should(gbytes.Say(`start-1\[some-name tunnel\] % Exited with status: 100`))
 			Eventually(logs).Should(gbytes.Say("start-2"))
-			Consistently(logs).ShouldNot(gbytes.Say(`\[some-app tunnel\] % Exited with status: 200`))
+			Consistently(logs).ShouldNot(gbytes.Say(`\[some-name tunnel\] % Exited with status: 200`))
 		})
 	})
 })

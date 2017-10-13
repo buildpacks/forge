@@ -27,6 +27,12 @@ func containerRunning(id string) bool {
 	return info.State.Running
 }
 
+func containerInfo(id string) types.ContainerJSON {
+	info, err := client.ContainerInspect(context.Background(), id)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	return info
+}
+
 func clearImage(image string) {
 	ctx := context.Background()
 	client.ImageRemove(ctx, image, types.ImageRemoveOptions{

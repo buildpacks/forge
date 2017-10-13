@@ -77,7 +77,7 @@ func (r *Runner) Run(config *RunConfig) (status int64, err error) {
 		return 0, err
 	}
 	hostConfig := r.buildHostConfig(config.NetworkConfig, memory, config.AppDir, remoteDir)
-	contr, err := r.Engine.NewContainer(containerConfig, hostConfig)
+	contr, err := r.Engine.NewContainer(config.AppConfig.Name, containerConfig, hostConfig)
 	if err != nil {
 		return 0, err
 	}
@@ -109,7 +109,7 @@ func (r *Runner) Export(config *ExportConfig) (imageID string, err error) {
 	if err != nil {
 		return "", err
 	}
-	contr, err := r.Engine.NewContainer(containerConfig, nil)
+	contr, err := r.Engine.NewContainer(config.AppConfig.Name, containerConfig, nil)
 	if err != nil {
 		return "", err
 	}
@@ -160,7 +160,7 @@ func (r *Runner) buildContainerConfig(config *AppConfig, rsync, networked bool) 
 		Name:               name,
 		Port:               uintPtr(8080),
 		SpaceID:            "18300c1c-1aa4-4ae7-81e6-ae59c6cdbaf1",
-		SpaceName:          "cflocal-space",
+		SpaceName:          config.Name + "-space",
 		URIs:               []string{"localhost"},
 		Version:            "18300c1c-1aa4-4ae7-81e6-ae59c6cdbaf1",
 	})
@@ -203,7 +203,7 @@ func (r *Runner) buildContainerConfig(config *AppConfig, rsync, networked bool) 
 		return nil, err
 	}
 
-	hostname := "cflocal"
+	hostname := config.Name
 	ports := nat.PortSet{"8080/tcp": {}}
 
 	if networked {

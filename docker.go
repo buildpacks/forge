@@ -48,8 +48,8 @@ type DockerEngine struct {
 	Exit   <-chan struct{}
 }
 
-func (d *DockerEngine) NewContainer(config *container.Config, hostConfig *container.HostConfig) (Container, error) {
-	contr, err := engine.NewContainer(d.Docker, config, hostConfig)
+func (d *DockerEngine) NewContainer(name string, config *container.Config, hostConfig *container.HostConfig) (Container, error) {
+	contr, err := engine.NewContainer(d.Docker, name, config, hostConfig)
 	if err != nil {
 		return nil, err
 	}

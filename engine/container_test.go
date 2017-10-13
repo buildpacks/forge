@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -17,8 +18,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 
-	"time"
-
 	. "github.com/sclevine/forge/engine"
 )
 
@@ -26,6 +25,7 @@ var _ = Describe("Container", func() {
 	var (
 		contr       *Container
 		config      *container.Config
+		hostConfig  *container.HostConfig
 		entrypoint  strslice.StrSlice
 		healthcheck *container.HealthConfig
 	)
@@ -44,13 +44,13 @@ var _ = Describe("Container", func() {
 			Labels:      map[string]string{"some-label-key": "some-label-value"},
 			Entrypoint:  entrypoint,
 		}
-		hostConfig := &container.HostConfig{
+		hostConfig = &container.HostConfig{
 			PortBindings: nat.PortMap{
 				"8080/tcp": {{HostIP: "127.0.0.1", HostPort: freePort()}},
 			},
 		}
 		var err error
-		contr, err = NewContainer(client, config, hostConfig)
+		contr, err = NewContainer(client, "some-name", config, hostConfig)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -62,7 +62,14 @@ var _ = Describe("Container", func() {
 		Expect(client.Close()).To(Succeed())
 	})
 
-	// TODO: test constructor w/ container name
+	Describe(".NewContainer", func() {
+		It("should configure the container", func() {
+			info := containerInfo(contr.ID())
+			Expect(info.Name).To(HavePrefix("some-name-"))
+			Expect(info.Config).To(Equal(config))
+			Expect(info.HostConfig).To(Equal(hostConfig))
+		})
+	})
 
 	Describe("#Close", func() {
 		It("should remove the container", func() {
@@ -282,7 +289,7 @@ var _ = Describe("Container", func() {
 			Expect(info.RepoTags[0]).To(Equal(ref + ":latest"))
 
 			config.Image = ref + ":latest"
-			contr2, err := NewContainer(client, config, nil)
+			contr2, err := NewContainer(client, "some-name", config, nil)
 			Expect(err).NotTo(HaveOccurred())
 			defer contr2.Close()
 

@@ -11,9 +11,9 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	. "github.com/sclevine/forge"
 	"github.com/sclevine/forge/engine"
 	"github.com/sclevine/forge/fixtures"
-	. "github.com/sclevine/forge"
 	"github.com/sclevine/forge/mocks"
 	sharedmocks "github.com/sclevine/forge/mocks"
 	"github.com/sclevine/forge/service"
@@ -44,6 +44,7 @@ var _ = Describe("Stager", func() {
 			DiegoVersion: "some-diego-version",
 			GoVersion:    "some-go-version",
 			StackVersion: "some-stack-version",
+			ImageTag:     "some-tag",
 			Logs:         logs,
 			Loader:       mockLoader,
 			Engine:       mockEngine,
@@ -81,7 +82,7 @@ var _ = Describe("Stager", func() {
 				RSync:  true,
 				Color:  percentColor,
 				AppConfig: &AppConfig{
-					Name:      "some-app",
+					Name:      "some-name",
 					Buildpack: "some-buildpack",
 					Buildpacks: []string{
 						"some-buildpack-one",
@@ -113,7 +114,7 @@ var _ = Describe("Stager", func() {
 
 			gomock.InOrder(
 				mockImage.EXPECT().Build(gomock.Any(), gomock.Any()).Do(func(tag string, dockerfile engine.Stream) {
-					Expect(tag).To(Equal("cflocal"))
+					Expect(tag).To(Equal("some-tag"))
 					dfBytes, err := ioutil.ReadAll(dockerfile)
 					Expect(err).NotTo(HaveOccurred())
 
@@ -124,13 +125,13 @@ var _ = Describe("Stager", func() {
 					Expect(dfBytes).To(ContainSubstring(`"go_buildpack-versioned-url"`))
 					Expect(dfBytes).To(ContainSubstring("/tmp/buildpacks/d222e8f339cb0c77b7a3051618bf9ca7"))
 				}).Return(progress),
-				mockEngine.EXPECT().NewContainer(gomock.Any(), gomock.Any()).Do(func(config *container.Config, hostConfig *container.HostConfig) {
-					Expect(config.Hostname).To(Equal("cflocal"))
+				mockEngine.EXPECT().NewContainer("some-name-staging", gomock.Any(), gomock.Any()).Do(func(config *container.Config, hostConfig *container.HostConfig) {
+					Expect(config.Hostname).To(Equal("some-name"))
 					Expect(config.User).To(Equal("root"))
 					Expect(config.ExposedPorts).To(HaveLen(0))
 					sort.Strings(config.Env)
 					Expect(config.Env).To(Equal(fixtures.ProvidedStagingEnv("MEMORY_LIMIT=1024m")))
-					Expect(config.Image).To(Equal("cflocal"))
+					Expect(config.Image).To(Equal("some-tag"))
 					Expect(config.WorkingDir).To(Equal("/home/vcap"))
 					Expect(config.Entrypoint).To(Equal(strslice.StrSlice{
 						"/bin/bash", "-c", fixtures.StageRSyncScript(),
@@ -146,7 +147,7 @@ var _ = Describe("Stager", func() {
 			cacheExtract := mockContainer.EXPECT().ExtractTo(localCache, "/tmp/cache")
 
 			gomock.InOrder(
-				mockContainer.EXPECT().Start("[some-app] % ", logs, nil).Return(int64(0), nil).
+				mockContainer.EXPECT().Start("[some-name] % ", logs, nil).Return(int64(0), nil).
 					After(buildpackCopy1).
 					After(buildpackCopy2).
 					After(appExtract).
@@ -184,7 +185,7 @@ var _ = Describe("Stager", func() {
 
 			gomock.InOrder(
 				mockImage.EXPECT().Build(gomock.Any(), gomock.Any()).Do(func(tag string, dockerfile engine.Stream) {
-					Expect(tag).To(Equal("cflocal"))
+					Expect(tag).To(Equal("some-tag"))
 					dfBytes, err := ioutil.ReadAll(dockerfile)
 					Expect(err).NotTo(HaveOccurred())
 
@@ -195,11 +196,11 @@ var _ = Describe("Stager", func() {
 					Expect(dfBytes).To(ContainSubstring(`"go_buildpack-versioned-url"`))
 					Expect(dfBytes).To(ContainSubstring("/tmp/buildpacks/d222e8f339cb0c77b7a3051618bf9ca7"))
 				}).Return(progress),
-				mockEngine.EXPECT().NewContainer(gomock.Any(), gomock.Any()).Do(func(config *container.Config, hostConfig *container.HostConfig) {
-					Expect(config.Hostname).To(Equal("cflocal"))
+				mockEngine.EXPECT().NewContainer("download", gomock.Any(), gomock.Any()).Do(func(config *container.Config, hostConfig *container.HostConfig) {
+					Expect(config.Hostname).To(Equal("download"))
 					Expect(config.User).To(Equal("root"))
 					Expect(config.ExposedPorts).To(HaveLen(0))
-					Expect(config.Image).To(Equal("cflocal"))
+					Expect(config.Image).To(Equal("some-tag"))
 					Expect(config.Entrypoint).To(Equal(strslice.StrSlice{"read"}))
 					Expect(hostConfig).To(BeNil())
 				}).Return(mockContainer, nil),
