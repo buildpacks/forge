@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"regexp"
+	"strconv"
+	"strings"
 	"text/template"
 	"time"
 
-	"code.cloudfoundry.org/cli/cf/formatters"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/strslice"
 	"github.com/docker/go-connections/nat"
@@ -38,6 +40,8 @@ const RunnerScript = `
 	fi
 	exec /tmp/lifecycle/launcher /home/vcap/app "$command" ''
 `
+
+var bytesPattern = regexp.MustCompile(`(?i)^(-?\d+)([KMGT])B?$`)
 
 type Runner struct {
 	Logs   io.Writer
@@ -72,7 +76,7 @@ func (r *Runner) Run(config *RunConfig) (status int64, err error) {
 	if config.RSync {
 		remoteDir = "/tmp/local"
 	}
-	memory, err := formatters.ToMegabytes(config.AppConfig.Memory)
+	memory, err := toMegabytes(config.AppConfig.Memory)
 	if err != nil {
 		return 0, err
 	}
@@ -141,11 +145,11 @@ func (r *Runner) setDefaults(config *AppConfig) {
 
 func (r *Runner) buildContainerConfig(config *AppConfig, stack string, rsync, networked bool) (*container.Config, error) {
 	name := config.Name
-	memory, err := formatters.ToMegabytes(config.Memory)
+	memory, err := toMegabytes(config.Memory)
 	if err != nil {
 		return nil, err
 	}
-	disk, err := formatters.ToMegabytes(config.DiskQuota)
+	disk, err := toMegabytes(config.DiskQuota)
 	if err != nil {
 		return nil, err
 	}
@@ -242,6 +246,38 @@ func (*Runner) buildHostConfig(netConfig *NetworkConfig, memory int64, appDir, r
 		config.Binds = []string{appDir + ":" + remoteDir}
 	}
 	return config
+}
+
+func toMegabytes(s string) (int64, error) {
+	parts := bytesPattern.FindStringSubmatch(strings.TrimSpace(s))
+	if len(parts) < 3 {
+		return 0, fmt.Errorf("invalid byte unit format: %s", s)
+	}
+
+	value, err := strconv.ParseInt(parts[1], 10, 0)
+	if err != nil {
+		return 0, fmt.Errorf("invalid byte number format: %s", s)
+	}
+
+	const (
+		kilobyte = 1024
+		megabyte = 1024 * kilobyte
+		gigabyte = 1024 * megabyte
+		terabyte = 1024 * gigabyte
+	)
+
+	var bytes int64
+	switch strings.ToUpper(parts[2]) {
+	case "T":
+		bytes = value * terabyte
+	case "G":
+		bytes = value * gigabyte
+	case "M":
+		bytes = value * megabyte
+	case "K":
+		bytes = value * kilobyte
+	}
+	return bytes / megabyte, nil
 }
 
 func mergeMaps(maps ...map[string]string) map[string]string {

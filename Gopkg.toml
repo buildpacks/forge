@@ -1,0 +1,31 @@
+ignored = [
+  "code.cloudfoundry.org/cli/cf/appfiles",
+]
+
+[[constraint]]
+  name = "github.com/moby/moby"
+  version = "v17.03.2-ce"
+
+[[constraint]]
+  name = "github.com/moby/go-connections"
+  version = "0.3.0"
+
+[[constraint]]
+  name = "github.com/golang/mock"
+  version = "1.0.0"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/nu7hatch/gouuid"
+
+[[constraint]]
+  name = "github.com/onsi/ginkgo"
+  version = "1.4.0"
+
+[[constraint]]
+  name = "github.com/onsi/gomega"
+  version = "1.2.0"
+
+[[constraint]]
+  branch = "v2"
+  name = "gopkg.in/yaml.v2"
