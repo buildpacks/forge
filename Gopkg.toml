@@ -1,33 +1,126 @@
-ignored = ["code.cloudfoundry.org/cli/cf/resources"]
+ignored = [
+  "code.cloudfoundry.org/cli/cf/resources",
+]
 
-[[constraint]]
-  name = "code.cloudfoundry.org/cli"
-  version = "v6.32.0"
-
-[[constraint]]
-  name = "github.com/moby/moby"
-  version = "v17.03.2-ce"
-
-[[constraint]]
-  name = "github.com/moby/go-connections"
-  version = "0.3.0"
-
-[[constraint]]
-  name = "github.com/golang/mock"
-  version = "1.0.0"
+# Library
 
 [[constraint]]
   branch = "master"
   name = "github.com/nu7hatch/gouuid"
 
 [[constraint]]
-  name = "github.com/onsi/ginkgo"
-  version = "1.4.0"
-
-[[constraint]]
-  name = "github.com/onsi/gomega"
-  version = "1.2.0"
-
-[[constraint]]
   branch = "v2"
   name = "gopkg.in/yaml.v2"
+
+# Test
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/onsi/ginkgo"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/onsi/gomega"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/golang/mock"
+
+# CF CLI
+
+[[constraint]]
+  name = "code.cloudfoundry.org/cli"
+  version = "=6.32.0"
+
+[[override]]
+  name = "code.cloudfoundry.org/gofileutils"
+  revision = "4d0c80011a0f37da1711c184028bc40137cd45af"
+
+[[override]]
+  name = "github.com/blang/semver"
+  revision = "4a1e882c79dcf4ec00d2e29fac74b9c8938d5052"
+
+[[override]]
+  name = "github.com/cloudfoundry/bytefmt"
+  revision = "f4415fafc5619dd75599a54a7c91fb3948ad58bd"
+
+[[override]]
+  name = "github.com/fatih/color"
+  revision = "42c364ba490082e4815b5222728711b3440603eb"
+
+[[override]]
+  name = "github.com/lunixbochs/vtclean"
+  revision = "4428d67a89b36ecae7998e983e5814d0d9c45a04"
+
+[[override]]
+  name = "github.com/mattn/go-colorable"
+  revision = "d228849504861217f796da67fae4f6e347643f15"
+
+[[override]]
+  name = "github.com/mattn/go-isatty"
+  revision = "30a891c33c7cde7b02a981314b4228ec99380cca"
+
+[[override]]
+  name = "github.com/mattn/go-runewidth"
+  revision = "14207d285c6c197daabb5c9793d63e7af9ab2d50"
+
+[[override]]
+  name = "github.com/SermoDigital/jose"
+  revision = "2bd9b81ac51d6d6134fcd4fd846bd2e7347a15f9"
+
+[[override]]
+  name = "github.com/vito/go-interact"
+  revision = "c5a3f51ad50e34ec101050f69383caa75082f233"
+
+[[override]]
+  name = "golang.org/x/text"
+  revision = "bd91bbf73e9a4a801adbfb97133c992678533126"
+
+# Docker
+
+[[constraint]]
+  name = "github.com/docker/docker"
+  revision = "v17.03.2-ce"
+
+[[override]]
+  name = "github.com/docker/distribution"
+  revision = "28602af35aceda2f8d571bad7ca37a54cf0250bc"
+
+[[override]]
+  name = "github.com/docker/go-connections"
+  revision = "ecb4cb2dd420ada7df7f2593d6c25441f65f69f2"
+
+[[override]]
+  name = "github.com/docker/go-units"
+  revision = "8a7beacffa3009a9ac66bad506b18ffdd110cf97"
+
+[[override]]
+  name = "github.com/opencontainers/runc"
+  revision = "54296cf40ad8143b62dbcaa1d90e520a2136ddfe"
+  source = "https://github.com/docker/runc.git"
+
+[[override]]
+  name = "github.com/pkg/errors"
+  revision = "839d9e913e063e28dfd0e6c7b7512793e0a48be9"
+
+[[override]]
+  name = "golang.org/x/sys"
+  revision = "8f0908ab3b2457e2e15403d3697c9ef5cb4b57a9"
+
+[[override]]
+  name = "golang.org/x/net"
+  revision = "2beffdc2e92c8a3027590f898fe88f69af48a3f8"
+  source = "https://github.com/tonistiigi/net.git"
+
+[[override]]
+  name = "golang.org/x/crypto"
+  revision = "3fbbcd23f1cb824e69491a5930cfeff09b12f4d2"
+
+[[override]]
+  name = "github.com/Sirupsen/logrus"
+  version = "=0.11.0"
+
+[[override]]
+  name = "github.com/Microsoft/go-winio"
+  version = "=0.3.8"
+

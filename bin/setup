@@ -4,6 +4,8 @@ set -e
 
 cd $(dirname "${BASH_SOURCE[0]}")/..
 
-pushd vendor/code.cloudfoundry.org/cli
-  ./bin/generate-language-resources
-popd
+dep ensure
+
+resources_dir=vendor/code.cloudfoundry.org/cli/cf/resources
+mkdir -p "$resources_dir"
+cp assets/i18n_resources.go "$resources_dir/"
