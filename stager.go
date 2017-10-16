@@ -64,7 +64,7 @@ type ReadResetWriter interface {
 }
 
 func (s *Stager) Stage(config *StageConfig) (droplet engine.Stream, err error) {
-	if err := s.buildDockerfile(); err != nil {
+	if err := s.buildDockerfile(config.Stack); err != nil {
 		return engine.Stream{}, err
 	}
 

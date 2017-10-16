@@ -55,7 +55,7 @@ func (f *Forwarder) Forward(config *ForwardConfig) (health <-chan string, done f
 	netHostConfig := &container.HostConfig{PortBindings: nat.PortMap{
 		"8080/tcp": {{HostIP: config.HostIP, HostPort: config.HostPort}},
 	}}
-	netContr, err := f.Engine.NewContainer("network", f.buildNetContainerConfig(config.AppName), netHostConfig)
+	netContr, err := f.Engine.NewContainer("network", f.buildNetContainerConfig(config.AppName, config.Stack), netHostConfig)
 	if err != nil {
 		return nil, nil, "", err
 	}

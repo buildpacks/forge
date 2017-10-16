@@ -1,6 +1,8 @@
-ignored = [
-  "code.cloudfoundry.org/cli/cf/appfiles",
-]
+ignored = ["code.cloudfoundry.org/cli/cf/resources"]
+
+[[constraint]]
+  name = "code.cloudfoundry.org/cli"
+  version = "v6.32.0"
 
 [[constraint]]
   name = "github.com/moby/moby"
