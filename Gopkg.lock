@@ -67,7 +67,7 @@
 [[projects]]
   branch = "master"
   name = "github.com/golang/mock"
-  packages = ["gomock"]
+  packages = ["gomock","mockgen","mockgen/model"]
   revision = "6e20fef50e74e443696bc32b693cf286b612d45b"
 
 [[projects]]
@@ -99,7 +99,7 @@
 [[projects]]
   branch = "master"
   name = "github.com/onsi/ginkgo"
-  packages = [".","config","internal/codelocation","internal/containernode","internal/failer","internal/leafnodes","internal/remote","internal/spec","internal/spec_iterator","internal/specrunner","internal/suite","internal/testingtproxy","internal/writer","reporters","reporters/stenographer","reporters/stenographer/support/go-colorable","reporters/stenographer/support/go-isatty","types"]
+  packages = [".","config","ginkgo","ginkgo/convert","ginkgo/interrupthandler","ginkgo/nodot","ginkgo/testrunner","ginkgo/testsuite","ginkgo/watch","internal/codelocation","internal/containernode","internal/failer","internal/leafnodes","internal/remote","internal/spec","internal/spec_iterator","internal/specrunner","internal/suite","internal/testingtproxy","internal/writer","reporters","reporters/stenographer","reporters/stenographer/support/go-colorable","reporters/stenographer/support/go-isatty","types"]
   revision = "11459a886d9cd66b319dac7ef1e917ee221372c9"
 
 [[projects]]
@@ -154,6 +154,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "51c5833e0e59ffef12ece860d7f9b624cf44db501a8ea767c92b09c9e5d3549e"
+  inputs-digest = "d39d62f465e9a16db871b5564db0d8f86d58df88f69ade347eea7ca03ea90015"
   solver-name = "gps-cdcl"
   solver-version = 1

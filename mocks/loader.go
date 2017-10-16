@@ -11,14 +11,12 @@ import (
 type MockLoader struct {
 	Err      error
 	Out      *gbytes.Buffer
-	Reply    map[string]string
 	Progress chan engine.Progress
 }
 
 func NewMockLoader() *MockLoader {
 	return &MockLoader{
 		Out:      gbytes.NewBuffer(),
-		Reply:    map[string]string{},
 		Progress: make(chan engine.Progress, 1),
 	}
 }
@@ -28,5 +26,5 @@ func (m *MockLoader) Loading(message string, progress <-chan engine.Progress) er
 	for p := range progress {
 		m.Progress <- p
 	}
-	return nil
+	return m.Err
 }

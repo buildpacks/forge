@@ -5,6 +5,7 @@ set -e
 cd $(dirname "${BASH_SOURCE[0]}")/..
 
 dep ensure
+dep prune
 
 resources_dir=vendor/code.cloudfoundry.org/cli/cf/resources
 mkdir -p "$resources_dir"
