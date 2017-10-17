@@ -7,7 +7,7 @@ package mocks
 import (
 	gomock "github.com/golang/mock/gomock"
 	forge "github.com/sclevine/forge"
-	container "github.com/sclevine/forge/vendor/github.com/docker/docker/api/types/container"
+	container "github.com/docker/docker/api/types/container"
 	reflect "reflect"
 )
 

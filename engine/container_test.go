@@ -65,9 +65,9 @@ var _ = Describe("Container", func() {
 	Describe(".NewContainer", func() {
 		It("should configure the container", func() {
 			info := containerInfo(contr.ID())
-			Expect(info.Name).To(HavePrefix("some-name-"))
-			Expect(info.Config).To(Equal(config))
-			Expect(info.HostConfig).To(Equal(hostConfig))
+			Expect(info.Name).To(HavePrefix("/some-name-"))
+			Expect(info.Config.Env).To(ContainElement("SOME-KEY=some-value"))
+			Expect(info.HostConfig.PortBindings).To(Equal(hostConfig.PortBindings))
 		})
 	})
 

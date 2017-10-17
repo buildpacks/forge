@@ -24,7 +24,7 @@ var _ = Describe("Runner", func() {
 	var (
 		runner        *Runner
 		mockCtrl      *gomock.Controller
-		mockUI        *sharedmocks.MockUI
+		mockLoader    *sharedmocks.MockLoader
 		mockEngine    *mocks.MockEngine
 		mockImage     *mocks.MockImage
 		mockContainer *mocks.MockContainer
@@ -32,14 +32,14 @@ var _ = Describe("Runner", func() {
 
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
-		mockUI = sharedmocks.NewMockUI()
+		mockLoader = sharedmocks.NewMockLoader()
 		mockEngine = mocks.NewMockEngine(mockCtrl)
 		mockImage = mocks.NewMockImage(mockCtrl)
 		mockContainer = mocks.NewMockContainer(mockCtrl)
 
 		runner = &Runner{
 			Logs:   bytes.NewBufferString("some-logs"),
-			Loader: mockUI,
+			Loader: mockLoader,
 			Engine: mockEngine,
 			Image:  mockImage,
 		}
@@ -91,7 +91,7 @@ var _ = Describe("Runner", func() {
 			}
 			gomock.InOrder(
 				mockImage.EXPECT().Pull("some-stack").Return(progress),
-				mockEngine.EXPECT().NewContainer("some-name", gomock.Any(), gomock.Any()).Do(func(config *container.Config, hostConfig *container.HostConfig) {
+				mockEngine.EXPECT().NewContainer("some-name", gomock.Any(), gomock.Any()).Do(func(_ string, config *container.Config, hostConfig *container.HostConfig) {
 					Expect(config.Hostname).To(Equal("some-name"))
 					Expect(config.User).To(Equal("vcap"))
 					Expect(config.ExposedPorts).To(HaveLen(1))
@@ -125,7 +125,7 @@ var _ = Describe("Runner", func() {
 			)
 
 			Expect(runner.Run(config)).To(Equal(int64(100)))
-			Expect(mockUI.Progress).To(Receive(Equal(mockProgress{Value: "some-progress"})))
+			Expect(mockLoader.Progress).To(Receive(Equal(mockProgress{Value: "some-progress"})))
 		})
 
 		// TODO: test when app dir is empty
@@ -167,7 +167,7 @@ var _ = Describe("Runner", func() {
 			}
 			gomock.InOrder(
 				mockImage.EXPECT().Pull("some-stack").Return(progress),
-				mockEngine.EXPECT().NewContainer("some-name", gomock.Any(), gomock.Any()).Do(func(config *container.Config, hostConfig *container.HostConfig) {
+				mockEngine.EXPECT().NewContainer("some-name", gomock.Any(), gomock.Any()).Do(func(_ string, config *container.Config, hostConfig *container.HostConfig) {
 					Expect(config.Hostname).To(Equal("some-name"))
 					Expect(config.User).To(Equal("vcap"))
 					Expect(config.ExposedPorts).To(HaveLen(1))
@@ -193,7 +193,7 @@ var _ = Describe("Runner", func() {
 			)
 
 			Expect(runner.Export(config)).To(Equal("some-image-id"))
-			Expect(mockUI.Progress).To(Receive(Equal(mockProgress{Value: "some-progress"})))
+			Expect(mockLoader.Progress).To(Receive(Equal(mockProgress{Value: "some-progress"})))
 
 		})
 

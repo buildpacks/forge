@@ -44,6 +44,10 @@ var _ = Describe("Stager", func() {
 			DiegoVersion: "some-diego-version",
 			GoVersion:    "some-go-version",
 			ImageTag:     "some-tag",
+			SystemBuildpacks: SystemBuildpacks{
+				{Name: "some-buildpack-name-1", URL: "some-buildpack-url-1", VersionURL: "some-buildpack-version-url-1"},
+				{Name: "some-buildpack-name-2", URL: "some-buildpack-url-2", VersionURL: "some-buildpack-version-url-2"},
+			},
 			Logs:         logs,
 			Loader:       mockLoader,
 			Engine:       mockEngine,
@@ -122,10 +126,12 @@ var _ = Describe("Stager", func() {
 					Expect(dfBytes).To(ContainSubstring("FROM some-stack"))
 					Expect(dfBytes).To(ContainSubstring("gosome-go-version.linux-amd64"))
 					Expect(dfBytes).To(ContainSubstring(`git checkout "vsome-diego-version"`))
-					Expect(dfBytes).To(ContainSubstring(`"go_buildpack-versioned-url"`))
-					Expect(dfBytes).To(ContainSubstring("/tmp/buildpacks/d222e8f339cb0c77b7a3051618bf9ca7"))
+					Expect(dfBytes).To(ContainSubstring(`"some-buildpack-name-1-versioned-url"`))
+					Expect(dfBytes).To(ContainSubstring("/tmp/buildpacks/0d75acab3a54a7f434405f9cce289eb7"))
+					Expect(dfBytes).To(ContainSubstring(`"some-buildpack-name-2-versioned-url"`))
+					Expect(dfBytes).To(ContainSubstring("/tmp/buildpacks/d144777ad4a8489c942ce839db1ad73d"))
 				}).Return(progress),
-				mockEngine.EXPECT().NewContainer("some-name-staging", gomock.Any(), gomock.Any()).Do(func(config *container.Config, hostConfig *container.HostConfig) {
+				mockEngine.EXPECT().NewContainer("some-name-staging", gomock.Any(), gomock.Any()).Do(func(_ string, config *container.Config, hostConfig *container.HostConfig) {
 					Expect(config.Hostname).To(Equal("some-name"))
 					Expect(config.User).To(Equal("root"))
 					Expect(config.ExposedPorts).To(HaveLen(0))
@@ -193,10 +199,12 @@ var _ = Describe("Stager", func() {
 					Expect(dfBytes).To(ContainSubstring("some-stack"))
 					Expect(dfBytes).To(ContainSubstring("gosome-go-version.linux-amd64"))
 					Expect(dfBytes).To(ContainSubstring(`git checkout "vsome-diego-version"`))
-					Expect(dfBytes).To(ContainSubstring(`"go_buildpack-versioned-url"`))
-					Expect(dfBytes).To(ContainSubstring("/tmp/buildpacks/d222e8f339cb0c77b7a3051618bf9ca7"))
+					Expect(dfBytes).To(ContainSubstring(`"some-buildpack-name-1-versioned-url"`))
+					Expect(dfBytes).To(ContainSubstring("/tmp/buildpacks/0d75acab3a54a7f434405f9cce289eb7"))
+					Expect(dfBytes).To(ContainSubstring(`"some-buildpack-name-2-versioned-url"`))
+					Expect(dfBytes).To(ContainSubstring("/tmp/buildpacks/d144777ad4a8489c942ce839db1ad73d"))
 				}).Return(progress),
-				mockEngine.EXPECT().NewContainer("download", gomock.Any(), gomock.Any()).Do(func(config *container.Config, hostConfig *container.HostConfig) {
+				mockEngine.EXPECT().NewContainer("download", gomock.Any(), gomock.Any()).Do(func(_ string, config *container.Config, hostConfig *container.HostConfig) {
 					Expect(config.Hostname).To(Equal("download"))
 					Expect(config.User).To(Equal("root"))
 					Expect(config.ExposedPorts).To(HaveLen(0))

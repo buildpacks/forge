@@ -86,7 +86,7 @@ var _ = Describe("Forwarder", func() {
 				HostPort: "400",
 				Wait:     waiter,
 			}
-			mockEngine.EXPECT().NewContainer("some-name", gomock.Any(), gomock.Any()).Do(func(config *container.Config, hostConfig *container.HostConfig) {
+			mockEngine.EXPECT().NewContainer("network", gomock.Any(), gomock.Any()).Do(func(_ string, config *container.Config, hostConfig *container.HostConfig) {
 				Expect(config.Hostname).To(Equal("some-name"))
 				Expect(config.User).To(Equal("vcap"))
 				Expect(config.ExposedPorts).To(HaveLen(1))
@@ -104,7 +104,7 @@ var _ = Describe("Forwarder", func() {
 			background := mockNetContainer.EXPECT().Background()
 			mockNetContainer.EXPECT().ID().Return("some-id").AnyTimes()
 
-			mockEngine.EXPECT().NewContainer("some-name", gomock.Any(), gomock.Any()).Do(func(config *container.Config, hostConfig *container.HostConfig) {
+			mockEngine.EXPECT().NewContainer("service", gomock.Any(), gomock.Any()).Do(func(_ string, config *container.Config, hostConfig *container.HostConfig) {
 				Expect(config.User).To(Equal("vcap"))
 				Expect(config.ExposedPorts).To(BeEmpty())
 				Expect(config.Healthcheck).To(Equal(&container.HealthConfig{
