@@ -16,7 +16,6 @@ import (
 	"github.com/sclevine/forge/engine"
 	"github.com/sclevine/forge/fixtures"
 	"github.com/sclevine/forge/mocks"
-	sharedmocks "github.com/sclevine/forge/mocks"
 	"github.com/sclevine/forge/service"
 )
 
@@ -24,7 +23,7 @@ var _ = Describe("Runner", func() {
 	var (
 		runner        *Runner
 		mockCtrl      *gomock.Controller
-		mockLoader    *sharedmocks.MockLoader
+		mockLoader    *mocks.MockLoader
 		mockEngine    *mocks.MockEngine
 		mockImage     *mocks.MockImage
 		mockContainer *mocks.MockContainer
@@ -32,7 +31,7 @@ var _ = Describe("Runner", func() {
 
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
-		mockLoader = sharedmocks.NewMockLoader()
+		mockLoader = mocks.NewMockLoader()
 		mockEngine = mocks.NewMockEngine(mockCtrl)
 		mockImage = mocks.NewMockImage(mockCtrl)
 		mockContainer = mocks.NewMockContainer(mockCtrl)

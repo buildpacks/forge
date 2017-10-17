@@ -15,7 +15,6 @@ import (
 	"github.com/sclevine/forge/engine"
 	"github.com/sclevine/forge/fixtures"
 	"github.com/sclevine/forge/mocks"
-	sharedmocks "github.com/sclevine/forge/mocks"
 	"github.com/sclevine/forge/service"
 )
 
@@ -23,7 +22,7 @@ var _ = Describe("Stager", func() {
 	var (
 		stager        *Stager
 		mockCtrl      *gomock.Controller
-		mockLoader    *sharedmocks.MockLoader
+		mockLoader    *mocks.MockLoader
 		mockEngine    *mocks.MockEngine
 		mockImage     *mocks.MockImage
 		mockVersioner *mocks.MockVersioner
@@ -33,7 +32,7 @@ var _ = Describe("Stager", func() {
 
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
-		mockLoader = sharedmocks.NewMockLoader()
+		mockLoader = mocks.NewMockLoader()
 		mockEngine = mocks.NewMockEngine(mockCtrl)
 		mockImage = mocks.NewMockImage(mockCtrl)
 		mockVersioner = mocks.NewMockVersioner(mockCtrl)
@@ -48,11 +47,11 @@ var _ = Describe("Stager", func() {
 				{Name: "some-buildpack-name-1", URL: "some-buildpack-url-1", VersionURL: "some-buildpack-version-url-1"},
 				{Name: "some-buildpack-name-2", URL: "some-buildpack-url-2", VersionURL: "some-buildpack-version-url-2"},
 			},
-			Logs:         logs,
-			Loader:       mockLoader,
-			Engine:       mockEngine,
-			Image:        mockImage,
-			Versioner:    mockVersioner,
+			Logs:      logs,
+			Loader:    mockLoader,
+			Engine:    mockEngine,
+			Image:     mockImage,
+			Versioner: mockVersioner,
 		}
 	})
 
@@ -64,8 +63,8 @@ var _ = Describe("Stager", func() {
 		It("should return a droplet of a staged app", func() {
 			buildpackZipStream1 := engine.NewStream(mockReadCloser{Value: "some-buildpack-zip-1"}, 100)
 			buildpackZipStream2 := engine.NewStream(mockReadCloser{Value: "some-buildpack-zip-2"}, 200)
-			localCache := sharedmocks.NewMockBuffer("some-old-cache")
-			remoteCache := sharedmocks.NewMockBuffer("some-new-cache")
+			localCache := mocks.NewMockBuffer("some-old-cache")
+			remoteCache := mocks.NewMockBuffer("some-new-cache")
 			remoteCacheStream := engine.NewStream(remoteCache, int64(remoteCache.Len()))
 			dropletStream := engine.NewStream(mockReadCloser{Value: "some-droplet"}, 300)
 
