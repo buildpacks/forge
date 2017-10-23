@@ -34,8 +34,6 @@ const StagerScript = `
 `
 
 type Stager struct {
-	DiegoVersion     string
-	GoVersion        string
 	ImageTag         string
 	SystemBuildpacks SystemBuildpacks
 	Logs             io.Writer
@@ -226,7 +224,7 @@ func streamOut(contr Container, out io.Writer, path string) error {
 	return stream.Out(out)
 }
 
-func (s *Stager) Download(path string, stack string) (stream engine.Stream, err error) {
+func (s *Stager) Download(path, stack string) (stream engine.Stream, err error) {
 	if err := s.buildDockerfile(stack); err != nil {
 		return engine.Stream{}, err
 	}
@@ -255,13 +253,9 @@ func (s *Stager) buildDockerfile(stack string) error {
 	}
 	dockerfileBuf := &bytes.Buffer{}
 	dockerfileData := struct {
-		DiegoVersion string
-		GoVersion    string
 		Stack        string
 		Buildpacks   []buildpackInfo
 	}{
-		s.DiegoVersion,
-		s.GoVersion,
 		stack,
 		buildpacks,
 	}

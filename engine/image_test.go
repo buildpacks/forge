@@ -44,11 +44,12 @@ var _ = Describe("Image", func() {
 			progress := image.Build(tag, dockerfileStream)
 			naCount := 0
 			for p := range progress {
-				Expect(p.Err()).NotTo(HaveOccurred())
-				if p.Status() == "N/A" {
+				status, err := p.Status()
+				Expect(err).NotTo(HaveOccurred())
+				if status == "N/A" {
 					naCount++
 				} else {
-					Expect(p.Status()).To(HaveSuffix("MB"))
+					Expect(status).To(HaveSuffix("MB"))
 				}
 			}
 			Expect(naCount).To(BeNumerically(">", 0))
@@ -80,7 +81,7 @@ var _ = Describe("Image", func() {
 			progress := image.Build(tag, dockerfileStream)
 			var err error
 			for p := range progress {
-				if pErr := p.Err(); pErr != nil {
+				if _, pErr := p.Status(); pErr != nil {
 					err = pErr
 				}
 			}
@@ -100,7 +101,7 @@ var _ = Describe("Image", func() {
 			progress := image.Build(tag, dockerfileStream)
 			var err error
 			for p := range progress {
-				if pErr := p.Err(); pErr != nil {
+				if _, pErr := p.Status(); pErr != nil {
 					err = pErr
 				}
 			}
@@ -119,17 +120,17 @@ var _ = Describe("Image", func() {
 			dockerfileStream := NewStream(ioutil.NopCloser(dockerfile), int64(dockerfile.Len()))
 
 			progress := image.Build(tag, dockerfileStream)
-			var progressErr Progress
-			for progressErr = range progress {
-				if progressErr.Err() != nil {
+			var err error
+			for p := range progress {
+				if _, err = p.Status(); err != nil {
 					break
 				}
 			}
-			Expect(progressErr.Err()).To(MatchError(ContainSubstring("non-zero code")))
+			Expect(err).To(MatchError(ContainSubstring("non-zero code")))
 			Expect(progress).To(BeClosed())
 
 			ctx := context.Background()
-			_, _, err := client.ImageInspectWithRaw(ctx, tag)
+			_, _, err = client.ImageInspectWithRaw(ctx, tag)
 			Expect(err).To(MatchError("Error: No such image: " + tag))
 		})
 	})
@@ -140,11 +141,12 @@ var _ = Describe("Image", func() {
 			progress := image.Pull("sclevine/test")
 			naCount := 0
 			for p := range progress {
-				Expect(p.Err()).NotTo(HaveOccurred())
-				if p.Status() == "N/A" {
+				status, err := p.Status()
+				Expect(err).NotTo(HaveOccurred())
+				if status == "N/A" {
 					naCount++
 				} else {
-					Expect(p.Status()).To(HaveSuffix("MB"))
+					Expect(status).To(HaveSuffix("MB"))
 				}
 			}
 			Expect(naCount).To(BeNumerically(">", 0))
@@ -171,19 +173,20 @@ var _ = Describe("Image", func() {
 
 			var progressErr Progress
 			Expect(progress).To(Receive(&progressErr))
-			Expect(progressErr.Err()).To(MatchError(HaveSuffix("invalid reference format")))
+			_, err := progressErr.Status()
+			Expect(err).To(MatchError(HaveSuffix("invalid reference format")))
 			Expect(progress).To(BeClosed())
 		})
 
 		It("should send an error when an error occurs during the image build", func() {
 			progress := image.Pull("sclevine/bad-test")
-			var progressErr Progress
-			for progressErr = range progress {
-				if progressErr.Err() != nil {
+			var err error
+			for p := range progress {
+				if _, err = p.Status(); err != nil {
 					break
 				}
 			}
-			Expect(progressErr.Err()).To(MatchError(ContainSubstring("sclevine/bad-test")))
+			Expect(err).To(MatchError(ContainSubstring("sclevine/bad-test")))
 			Expect(progress).To(BeClosed())
 		})
 	})

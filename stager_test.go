@@ -40,8 +40,6 @@ var _ = Describe("Stager", func() {
 		logs = bytes.NewBufferString("some logs\n")
 
 		stager = &Stager{
-			DiegoVersion: "some-diego-version",
-			GoVersion:    "some-go-version",
 			ImageTag:     "some-tag",
 			SystemBuildpacks: SystemBuildpacks{
 				{Name: "some-buildpack-name-1", URL: "some-buildpack-url-1", VersionURL: "some-buildpack-version-url-1"},
@@ -123,8 +121,6 @@ var _ = Describe("Stager", func() {
 
 					Expect(dockerfile.Size).To(Equal(int64(len(dfBytes))))
 					Expect(dfBytes).To(ContainSubstring("FROM some-stack"))
-					Expect(dfBytes).To(ContainSubstring("gosome-go-version.linux-amd64"))
-					Expect(dfBytes).To(ContainSubstring(`git checkout "vsome-diego-version"`))
 					Expect(dfBytes).To(ContainSubstring(`"some-buildpack-name-1-versioned-url"`))
 					Expect(dfBytes).To(ContainSubstring("/tmp/buildpacks/0d75acab3a54a7f434405f9cce289eb7"))
 					Expect(dfBytes).To(ContainSubstring(`"some-buildpack-name-2-versioned-url"`))
@@ -196,8 +192,6 @@ var _ = Describe("Stager", func() {
 
 					Expect(dockerfile.Size).To(Equal(int64(len(dfBytes))))
 					Expect(dfBytes).To(ContainSubstring("some-stack"))
-					Expect(dfBytes).To(ContainSubstring("gosome-go-version.linux-amd64"))
-					Expect(dfBytes).To(ContainSubstring(`git checkout "vsome-diego-version"`))
 					Expect(dfBytes).To(ContainSubstring(`"some-buildpack-name-1-versioned-url"`))
 					Expect(dfBytes).To(ContainSubstring("/tmp/buildpacks/0d75acab3a54a7f434405f9cce289eb7"))
 					Expect(dfBytes).To(ContainSubstring(`"some-buildpack-name-2-versioned-url"`))

@@ -10,22 +10,22 @@ import (
 	. "github.com/sclevine/forge/version"
 )
 
-var _ = Describe("URL", func() {
-	var url *URL
+var _ = Describe("Version", func() {
+	var version *Version
 
 	BeforeEach(func() {
-		url = &URL{Client: &http.Client{}}
+		version = &Version{Client: &http.Client{}}
 	})
 
 	Describe("#Build", func() {
-		It("should lookup the version and embed it in the template url", func() {
+		It("should lookup the version and embed it in the template", func() {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				defer r.Body.Close()
 				if r.Method == "GET" {
 					w.Write([]byte("some-version"))
 				}
 			}))
-			out, err := url.Build("some-{{.}}-template", server.URL)
+			out, err := version.Build("some-{{.}}-template", server.URL)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(out).To(Equal("some-some-version-template"))
 		})

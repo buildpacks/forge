@@ -2,42 +2,28 @@ package engine
 
 import "errors"
 
+// TODO: Refactor Status() and Err() into one method
+
 type progressMsg string
 
-func (p progressMsg) Err() error {
-	return nil
-}
-
-func (p progressMsg) Status() string {
-	return string(p)
+func (p progressMsg) Status() (string, error) {
+	return string(p), nil
 }
 
 type progressNA struct{}
 
-func (p progressNA) Err() error {
-	return nil
-}
-
-func (p progressNA) Status() string {
-	return "N/A"
+func (p progressNA) Status() (string, error) {
+	return "N/A", nil
 }
 
 type progressError struct{ error }
 
-func (p progressError) Err() error {
-	return p.error
-}
-
-func (p progressError) Status() string {
-	return p.Error()
+func (p progressError) Status() (string, error) {
+	return "", p.error
 }
 
 type progressErrorString string
 
-func (p progressErrorString) Err() error {
-	return errors.New(string(p))
-}
-
-func (p progressErrorString) Status() string {
-	return string(p)
+func (p progressErrorString) Status() (string, error) {
+	return "", errors.New(string(p))
 }

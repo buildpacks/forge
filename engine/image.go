@@ -15,8 +15,7 @@ type Image struct {
 }
 
 type Progress interface {
-	Status() string
-	Err() error
+	Status() (string, error)
 }
 
 func (i *Image) Build(tag string, dockerfile Stream) <-chan Progress {

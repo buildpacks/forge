@@ -8,7 +8,7 @@ import (
 	"text/template"
 )
 
-type URL struct {
+type Version struct {
 	Client *http.Client
 }
 
@@ -17,7 +17,7 @@ var (
 	ErrUnavailable = errors.New("version unavailable")
 )
 
-func (u *URL) Build(tmplURL, versionURL string) (string, error) {
+func (u *Version) Build(tmpl, versionURL string) (string, error) {
 	resp, err := u.Client.Get(versionURL)
 	if err != nil {
 		return "", ErrNetwork
@@ -31,8 +31,8 @@ func (u *URL) Build(tmplURL, versionURL string) (string, error) {
 		return "", err
 	}
 	urlBuf := &bytes.Buffer{}
-	tmpl := template.Must(template.New("").Parse(tmplURL))
-	if err := tmpl.Execute(urlBuf, string(bytes.TrimSpace(body))); err != nil {
+	t := template.Must(template.New("").Parse(tmpl))
+	if err := t.Execute(urlBuf, string(bytes.TrimSpace(body))); err != nil {
 		return "", err
 	}
 	return urlBuf.String(), nil
