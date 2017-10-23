@@ -27,6 +27,7 @@ RUN \
     src/code.cloudfoundry.org/cacheddownloader \
     src/code.cloudfoundry.org/lager \
     src/code.cloudfoundry.org/systemcerts \
+    src/github.com/cloudfoundry-incubator/credhub-cli \
     src/gopkg.in/yaml.v2 && \
   export PATH=/usr/local/go/bin:$PATH && \
   export GOPATH=/tmp/diego-release && \
