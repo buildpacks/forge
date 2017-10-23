@@ -19,7 +19,7 @@ import (
 	"github.com/sclevine/forge/service"
 )
 
-const RunnerScript = `
+const runnerScript = `
 	set -e
 	{{if .RSync -}}
 	rsync -a /tmp/local/ /home/vcap/app/
@@ -203,7 +203,7 @@ func (r *Runner) buildContainerConfig(config *AppConfig, stack string, rsync, ne
 
 	options := struct{ RSync bool }{rsync}
 	scriptBuf := &bytes.Buffer{}
-	tmpl := template.Must(template.New("").Parse(RunnerScript))
+	tmpl := template.Must(template.New("").Parse(runnerScript))
 	if err := tmpl.Execute(scriptBuf, options); err != nil {
 		return nil, err
 	}

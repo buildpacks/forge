@@ -20,7 +20,7 @@ import (
 	"github.com/sclevine/forge/version"
 )
 
-const StagerScript = `
+const stagerScript = `
 	set -e
 	{{- range .BuildpackMD5s}}
 	su vcap -c "unzip -qq /tmp/{{.}}.zip -d /tmp/buildpacks/{{.}}" && rm /tmp/{{.}}.zip
@@ -35,7 +35,7 @@ const StagerScript = `
 
 type Stager struct {
 	ImageTag         string
-	SystemBuildpacks SystemBuildpacks
+	SystemBuildpacks Buildpacks
 	Logs             io.Writer
 	Loader           Loader
 	Engine           Engine
@@ -184,7 +184,7 @@ func (s *Stager) buildContainerConfig(config *AppConfig, buildpackMD5s []string,
 	}
 
 	scriptBuf := &bytes.Buffer{}
-	tmpl := template.Must(template.New("").Parse(StagerScript))
+	tmpl := template.Must(template.New("").Parse(stagerScript))
 	if err := tmpl.Execute(scriptBuf, struct {
 		RSync         bool
 		BuildpackMD5s []string
@@ -253,8 +253,8 @@ func (s *Stager) buildDockerfile(stack string) error {
 	}
 	dockerfileBuf := &bytes.Buffer{}
 	dockerfileData := struct {
-		Stack        string
-		Buildpacks   []buildpackInfo
+		Stack      string
+		Buildpacks []buildpackInfo
 	}{
 		stack,
 		buildpacks,

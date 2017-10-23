@@ -6,9 +6,9 @@ type Buildpack struct {
 	VersionURL string
 }
 
-type SystemBuildpacks []Buildpack
+type Buildpacks []Buildpack
 
-func (b SystemBuildpacks) names() []string {
+func (b Buildpacks) names() []string {
 	var names []string
 	for _, bp := range b {
 		names = append(names, bp.Name)

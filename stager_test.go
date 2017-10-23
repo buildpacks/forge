@@ -40,8 +40,8 @@ var _ = Describe("Stager", func() {
 		logs = bytes.NewBufferString("some logs\n")
 
 		stager = &Stager{
-			ImageTag:     "some-tag",
-			SystemBuildpacks: SystemBuildpacks{
+			ImageTag: "some-tag",
+			SystemBuildpacks: Buildpacks{
 				{Name: "some-buildpack-name-1", URL: "some-buildpack-url-1", VersionURL: "some-buildpack-version-url-1"},
 				{Name: "some-buildpack-name-2", URL: "some-buildpack-url-2", VersionURL: "some-buildpack-version-url-2"},
 			},

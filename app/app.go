@@ -11,9 +11,7 @@ import (
 	"github.com/docker/docker/pkg/archive"
 )
 
-type App struct{}
-
-func (a *App) Tar(path string) (app io.ReadCloser, err error) {
+func Tar(path string) (app io.ReadCloser, err error) {
 	var absPath, appDir string
 
 	absPath, err = filepath.Abs(path)

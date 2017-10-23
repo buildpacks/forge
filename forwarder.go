@@ -17,7 +17,7 @@ import (
 	"github.com/sclevine/forge/service"
 )
 
-const ForwardScript = `
+const forwardScript = `
 	{{if .Forwards -}}
 	echo 'Forwarding:{{range .Forwards}} {{.Name}}{{end}}'
 	sshpass -f /tmp/ssh-code ssh -4 -N \
@@ -119,7 +119,7 @@ func (f *Forwarder) Forward(config *ForwardConfig) (health <-chan string, done f
 
 func (f *Forwarder) buildContainerConfig(forwardConfig *service.ForwardConfig, stack string) (*container.Config, error) {
 	scriptBuf := &bytes.Buffer{}
-	tmpl := template.Must(template.New("").Parse(ForwardScript))
+	tmpl := template.Must(template.New("").Parse(forwardScript))
 	if err := tmpl.Execute(scriptBuf, forwardConfig); err != nil {
 		return nil, err
 	}
