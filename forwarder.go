@@ -45,7 +45,7 @@ type ForwardConfig struct {
 	Stack            string
 	SSHPass          engine.Stream
 	Color            Colorizer
-	ForwardConfig    *ForwardDetails
+	Details          *ForwardDetails
 	HostIP, HostPort string
 	Wait             <-chan time.Time
 }
@@ -75,7 +75,7 @@ func (f *Forwarder) Forward(config *ForwardConfig) (health <-chan string, done f
 	}
 
 	networkMode := "container:" + netContr.ID()
-	containerConfig, err := f.buildContainerConfig(config.ForwardConfig, config.Stack)
+	containerConfig, err := f.buildContainerConfig(config.Details, config.Stack)
 	if err != nil {
 		return nil, nil, "", err
 	}
@@ -98,7 +98,7 @@ func (f *Forwarder) Forward(config *ForwardConfig) (health <-chan string, done f
 			case <-exit:
 				return
 			case <-wait:
-				code, err := config.ForwardConfig.Code()
+				code, err := config.Details.Code()
 				if err != nil {
 					fmt.Fprintf(output, "%sError: %s\n", prefix, err)
 					continue

@@ -55,7 +55,7 @@ var _ = Describe("Forwarder", func() {
 				Stack:   "some-stack",
 				SSHPass: engine.NewStream(mockReadCloser{Value: "some-sshpass"}, 300),
 				Color:   percentColor,
-				ForwardConfig: &ForwardDetails{
+				Details: &ForwardDetails{
 					Host: "some-ssh-host",
 					Port: "some-port",
 					User: "some-user",
