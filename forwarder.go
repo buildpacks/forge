@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
 	"text/template"
 	"time"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/strslice"
+	docker "github.com/docker/docker/client"
 
 	"github.com/docker/go-connections/nat"
 	"github.com/sclevine/forge/engine"
@@ -36,7 +38,7 @@ const forwardScript = `
 
 type Forwarder struct {
 	Logs   io.Writer
-	Engine Engine
+	engine forgeEngine
 }
 
 type ForwardConfig struct {
@@ -49,13 +51,22 @@ type ForwardConfig struct {
 	Wait             <-chan time.Time
 }
 
+func NewForwarder(client *docker.Client) *Forwarder {
+	return &Forwarder{
+		Logs: os.Stdout,
+		engine: &dockerEngine{
+			Docker: client,
+		},
+	}
+}
+
 func (f *Forwarder) Forward(config *ForwardConfig) (health <-chan string, done func(), id string, err error) {
 	output := outlock.New(f.Logs)
 
 	netHostConfig := &container.HostConfig{PortBindings: nat.PortMap{
 		"8080/tcp": {{HostIP: config.HostIP, HostPort: config.HostPort}},
 	}}
-	netContr, err := f.Engine.NewContainer("network", f.buildNetContainerConfig(config.AppName, config.Stack), netHostConfig)
+	netContr, err := f.engine.NewContainer("network", f.buildNetContainerConfig(config.AppName, config.Stack), netHostConfig)
 	if err != nil {
 		return nil, nil, "", err
 	}
@@ -70,7 +81,7 @@ func (f *Forwarder) Forward(config *ForwardConfig) (health <-chan string, done f
 		return nil, nil, "", err
 	}
 	hostConfig := &container.HostConfig{NetworkMode: container.NetworkMode(networkMode)}
-	contr, err := f.Engine.NewContainer("service", containerConfig, hostConfig)
+	contr, err := f.engine.NewContainer("service", containerConfig, hostConfig)
 	if err != nil {
 		return nil, nil, "", err
 	}

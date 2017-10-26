@@ -1,6 +1,9 @@
 package forge_test
 
 import (
+	"fmt"
+	"io"
+	"io/ioutil"
 	"time"
 
 	"github.com/docker/docker/api/types/container"
@@ -9,12 +12,6 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
-	"fmt"
-
-	"io"
-
-	"io/ioutil"
 
 	"github.com/onsi/gomega/gbytes"
 	. "github.com/sclevine/forge"
@@ -41,10 +38,8 @@ var _ = Describe("Forwarder", func() {
 		mockContainer = mocks.NewMockContainer(mockCtrl)
 		logs = gbytes.NewBuffer()
 
-		forwarder = &Forwarder{
-			Logs:   logs,
-			Engine: mockEngine,
-		}
+		forwarder = NewTestForwarder(mockEngine)
+		forwarder.Logs = logs
 	})
 
 	AfterEach(func() {

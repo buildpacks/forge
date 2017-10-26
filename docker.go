@@ -44,12 +44,12 @@ RUN curl -L -o /tmp/buildpack.zip "{{.URL}}" && unzip /tmp/buildpack.zip -d /tmp
 {{end}}
 `
 
-type DockerEngine struct {
+type dockerEngine struct {
 	Docker *docker.Client
 	Exit   <-chan struct{}
 }
 
-func (d *DockerEngine) NewContainer(name string, config *container.Config, hostConfig *container.HostConfig) (Container, error) {
+func (d *dockerEngine) NewContainer(name string, config *container.Config, hostConfig *container.HostConfig) (Container, error) {
 	contr, err := engine.NewContainer(d.Docker, name, config, hostConfig)
 	if err != nil {
 		return nil, err

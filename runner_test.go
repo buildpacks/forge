@@ -36,12 +36,9 @@ var _ = Describe("Runner", func() {
 		mockImage = mocks.NewMockImage(mockCtrl)
 		mockContainer = mocks.NewMockContainer(mockCtrl)
 
-		runner = &Runner{
-			Logs:   bytes.NewBufferString("some-logs"),
-			Loader: mockLoader,
-			Engine: mockEngine,
-			Image:  mockImage,
-		}
+		runner = NewTestRunner(mockEngine, mockImage)
+		runner.Logs = bytes.NewBufferString("some-logs")
+		runner.Loader = mockLoader
 	})
 
 	AfterEach(func() {

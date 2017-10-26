@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/strslice"
+	docker "github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 
 	"github.com/sclevine/forge/engine"
@@ -46,8 +48,8 @@ var bytesPattern = regexp.MustCompile(`(?i)^(-?\d+)([KMGT])B?$`)
 type Runner struct {
 	Logs   io.Writer
 	Loader Loader
-	Engine Engine
-	Image  Image
+	engine forgeEngine
+	image  forgeImage
 }
 
 type RunConfig struct {
@@ -60,6 +62,21 @@ type RunConfig struct {
 	Color         Colorizer
 	AppConfig     *AppConfig
 	NetworkConfig *NetworkConfig
+}
+
+func NewRunner(client *docker.Client, exit <-chan struct{}) *Runner {
+	return &Runner{
+		Logs:   os.Stdout,
+		Loader: noopLoader{},
+		engine: &dockerEngine{
+			Docker: client,
+			Exit:   exit,
+		},
+		image: &engine.Image{
+			Docker: client,
+			Exit:   exit,
+		},
+	}
 }
 
 func (r *Runner) Run(config *RunConfig) (status int64, err error) {
@@ -81,7 +98,7 @@ func (r *Runner) Run(config *RunConfig) (status int64, err error) {
 		return 0, err
 	}
 	hostConfig := r.buildHostConfig(config.NetworkConfig, memory, config.AppDir, remoteDir)
-	contr, err := r.Engine.NewContainer(config.AppConfig.Name, containerConfig, hostConfig)
+	contr, err := r.engine.NewContainer(config.AppConfig.Name, containerConfig, hostConfig)
 	if err != nil {
 		return 0, err
 	}
@@ -114,7 +131,7 @@ func (r *Runner) Export(config *ExportConfig) (imageID string, err error) {
 	if err != nil {
 		return "", err
 	}
-	contr, err := r.Engine.NewContainer(config.AppConfig.Name, containerConfig, nil)
+	contr, err := r.engine.NewContainer(config.AppConfig.Name, containerConfig, nil)
 	if err != nil {
 		return "", err
 	}
@@ -131,7 +148,7 @@ func (r *Runner) Export(config *ExportConfig) (imageID string, err error) {
 }
 
 func (r *Runner) pull(stack string) error {
-	return r.Loader.Loading("Image", r.Image.Pull(stack))
+	return r.Loader.Loading("Image", r.image.Pull(stack))
 }
 
 func (r *Runner) setDefaults(config *AppConfig) {

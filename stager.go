@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -14,6 +16,7 @@ import (
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/strslice"
+	docker "github.com/docker/docker/client"
 
 	"github.com/sclevine/forge/engine"
 	"github.com/sclevine/forge/service"
@@ -38,9 +41,9 @@ type Stager struct {
 	SystemBuildpacks Buildpacks
 	Logs             io.Writer
 	Loader           Loader
-	Engine           Engine
-	Image            Image
-	Versioner        Versioner
+	versioner        versioner
+	engine           forgeEngine
+	image            forgeImage
 }
 
 type StageConfig struct {
@@ -59,6 +62,25 @@ type StageConfig struct {
 type ReadResetWriter interface {
 	io.ReadWriter
 	Reset() error
+}
+
+func NewStager(client *docker.Client, httpClient *http.Client, exit <-chan struct{}) *Stager {
+	return &Stager{
+		ImageTag: "forge",
+		Logs:     os.Stdout,
+		Loader:   noopLoader{},
+		versioner: &version.Version{
+			Client: httpClient,
+		},
+		engine: &dockerEngine{
+			Docker: client,
+			Exit:   exit,
+		},
+		image: &engine.Image{
+			Docker: client,
+			Exit:   exit,
+		},
+	}
 }
 
 func (s *Stager) Stage(config *StageConfig) (droplet engine.Stream, err error) {
@@ -80,7 +102,7 @@ func (s *Stager) Stage(config *StageConfig) (droplet engine.Stream, err error) {
 		remoteDir = "/tmp/local"
 	}
 	hostConfig := s.buildHostConfig(config.AppDir, remoteDir)
-	contr, err := s.Engine.NewContainer(config.AppConfig.Name+"-staging", containerConfig, hostConfig)
+	contr, err := s.engine.NewContainer(config.AppConfig.Name+"-staging", containerConfig, hostConfig)
 	if err != nil {
 		return engine.Stream{}, err
 	}
@@ -234,7 +256,7 @@ func (s *Stager) Download(path, stack string) (stream engine.Stream, err error) 
 		Image:      s.ImageTag,
 		Entrypoint: strslice.StrSlice{"read"},
 	}
-	contr, err := s.Engine.NewContainer("download", containerConfig, nil)
+	contr, err := s.engine.NewContainer("download", containerConfig, nil)
 	if err != nil {
 		return engine.Stream{}, err
 	}
@@ -264,13 +286,13 @@ func (s *Stager) buildDockerfile(stack string) error {
 		return err
 	}
 	dockerfileStream := engine.NewStream(ioutil.NopCloser(dockerfileBuf), int64(dockerfileBuf.Len()))
-	return s.Loader.Loading("Image", s.Image.Build(s.ImageTag, dockerfileStream))
+	return s.Loader.Loading("Image", s.image.Build(s.ImageTag, dockerfileStream))
 }
 
 func (s *Stager) buildpacks() ([]buildpackInfo, error) {
 	var buildpacks []buildpackInfo
 	for _, buildpack := range s.SystemBuildpacks {
-		url, err := s.Versioner.Build(buildpack.URL, buildpack.VersionURL)
+		url, err := s.versioner.Build(buildpack.URL, buildpack.VersionURL)
 		if err != nil {
 			return nil, err
 		}

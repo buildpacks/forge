@@ -39,18 +39,14 @@ var _ = Describe("Stager", func() {
 		mockContainer = mocks.NewMockContainer(mockCtrl)
 		logs = bytes.NewBufferString("some logs\n")
 
-		stager = &Stager{
-			ImageTag: "some-tag",
-			SystemBuildpacks: Buildpacks{
-				{Name: "some-buildpack-name-1", URL: "some-buildpack-url-1", VersionURL: "some-buildpack-version-url-1"},
-				{Name: "some-buildpack-name-2", URL: "some-buildpack-url-2", VersionURL: "some-buildpack-version-url-2"},
-			},
-			Logs:      logs,
-			Loader:    mockLoader,
-			Engine:    mockEngine,
-			Image:     mockImage,
-			Versioner: mockVersioner,
+		stager = NewTestStager(mockVersioner, mockEngine, mockImage)
+		stager.ImageTag = "some-tag"
+		stager.SystemBuildpacks = Buildpacks{
+			{Name: "some-buildpack-name-1", URL: "some-buildpack-url-1", VersionURL: "some-buildpack-version-url-1"},
+			{Name: "some-buildpack-name-2", URL: "some-buildpack-url-2", VersionURL: "some-buildpack-version-url-2"},
 		}
+		stager.Logs = logs
+		stager.Loader = mockLoader
 	})
 
 	AfterEach(func() {
