@@ -19,8 +19,7 @@ import (
 	docker "github.com/docker/docker/client"
 
 	"github.com/sclevine/forge/engine"
-	"github.com/sclevine/forge/service"
-	"github.com/sclevine/forge/version"
+	"github.com/sclevine/forge/internal"
 )
 
 const stagerScript = `
@@ -69,7 +68,7 @@ func NewStager(client *docker.Client, httpClient *http.Client, exit <-chan struc
 		ImageTag: "forge",
 		Logs:     os.Stdout,
 		Loader:   noopLoader{},
-		versioner: &version.Version{
+		versioner: &internal.Version{
 			Client: httpClient,
 		},
 		engine: &dockerEngine{
@@ -183,7 +182,7 @@ func (s *Stager) buildContainerConfig(config *AppConfig, buildpackMD5s []string,
 
 	services := config.Services
 	if services == nil {
-		services = service.Services{}
+		services = Services{}
 	}
 	vcapServices, err := json.Marshal(services)
 	if err != nil {
@@ -266,7 +265,7 @@ func (s *Stager) Download(path, stack string) (stream engine.Stream, err error) 
 
 func (s *Stager) buildDockerfile(stack string) error {
 	buildpacks, err := s.buildpacks()
-	if err == version.ErrNetwork || err == version.ErrUnavailable {
+	if err == internal.ErrNetwork || err == internal.ErrUnavailable {
 		fmt.Fprintln(s.Logs, "Warning: cannot build image: ", err)
 		return nil
 	}

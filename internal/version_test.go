@@ -1,4 +1,4 @@
-package version_test
+package internal_test
 
 import (
 	"net/http"
@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	. "github.com/sclevine/forge/version"
+	. "github.com/sclevine/forge/internal"
 )
 
 var _ = Describe("Version", func() {

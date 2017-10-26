@@ -1,8 +1,7 @@
-package version
+package internal
 
 import (
 	"bytes"
-	"errors"
 	"io/ioutil"
 	"net/http"
 	"text/template"
@@ -11,11 +10,6 @@ import (
 type Version struct {
 	Client *http.Client
 }
-
-var (
-	ErrNetwork     = errors.New("no network connection")
-	ErrUnavailable = errors.New("version unavailable")
-)
 
 func (u *Version) Build(tmpl, versionURL string) (string, error) {
 	resp, err := u.Client.Get(versionURL)

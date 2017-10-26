@@ -15,7 +15,6 @@ import (
 	"github.com/sclevine/forge/engine"
 	"github.com/sclevine/forge/fixtures"
 	"github.com/sclevine/forge/mocks"
-	"github.com/sclevine/forge/service"
 )
 
 var _ = Describe("Stager", func() {
@@ -96,7 +95,7 @@ var _ = Describe("Stager", func() {
 						"TEST_ENV_KEY": "test-env-value",
 						"MEMORY_LIMIT": "1024m",
 					},
-					Services: service.Services{
+					Services: Services{
 						"some-type": {{
 							Name: "some-name",
 						}},

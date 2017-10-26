@@ -18,7 +18,6 @@ import (
 	"github.com/sclevine/forge/engine"
 	"github.com/sclevine/forge/fixtures"
 	"github.com/sclevine/forge/mocks"
-	"github.com/sclevine/forge/service"
 )
 
 var _ = Describe("Forwarder", func() {
@@ -56,7 +55,7 @@ var _ = Describe("Forwarder", func() {
 				Stack:   "some-stack",
 				SSHPass: engine.NewStream(mockReadCloser{Value: "some-sshpass"}, 300),
 				Color:   percentColor,
-				ForwardConfig: &service.ForwardConfig{
+				ForwardConfig: &ForwardDetails{
 					Host: "some-ssh-host",
 					Port: "some-port",
 					User: "some-user",
@@ -64,7 +63,7 @@ var _ = Describe("Forwarder", func() {
 						codeIdx++
 						return fmt.Sprintf("some-code-%d", codeIdx), nil
 					},
-					Forwards: []service.Forward{
+					Forwards: []Forward{
 						{
 							Name: "some-name",
 							From: "some-from",

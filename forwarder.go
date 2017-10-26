@@ -15,8 +15,7 @@ import (
 
 	"github.com/docker/go-connections/nat"
 	"github.com/sclevine/forge/engine"
-	"github.com/sclevine/forge/outlock"
-	"github.com/sclevine/forge/service"
+	"github.com/sclevine/forge/internal"
 )
 
 const forwardScript = `
@@ -46,7 +45,7 @@ type ForwardConfig struct {
 	Stack            string
 	SSHPass          engine.Stream
 	Color            Colorizer
-	ForwardConfig    *service.ForwardConfig
+	ForwardConfig    *ForwardDetails
 	HostIP, HostPort string
 	Wait             <-chan time.Time
 }
@@ -61,7 +60,7 @@ func NewForwarder(client *docker.Client) *Forwarder {
 }
 
 func (f *Forwarder) Forward(config *ForwardConfig) (health <-chan string, done func(), id string, err error) {
-	output := outlock.New(f.Logs)
+	output := internal.NewLockWriter(f.Logs)
 
 	netHostConfig := &container.HostConfig{PortBindings: nat.PortMap{
 		"8080/tcp": {{HostIP: config.HostIP, HostPort: config.HostPort}},
@@ -128,7 +127,7 @@ func (f *Forwarder) Forward(config *ForwardConfig) (health <-chan string, done f
 	return contr.HealthCheck(), done, netContr.ID(), nil
 }
 
-func (f *Forwarder) buildContainerConfig(forwardConfig *service.ForwardConfig, stack string) (*container.Config, error) {
+func (f *Forwarder) buildContainerConfig(forwardConfig *ForwardDetails, stack string) (*container.Config, error) {
 	scriptBuf := &bytes.Buffer{}
 	tmpl := template.Must(template.New("").Parse(forwardScript))
 	if err := tmpl.Execute(scriptBuf, forwardConfig); err != nil {

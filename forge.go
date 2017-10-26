@@ -7,7 +7,6 @@ import (
 	"github.com/docker/docker/api/types/container"
 
 	"github.com/sclevine/forge/engine"
-	"github.com/sclevine/forge/service"
 )
 
 //go:generate mockgen -package mocks -destination mocks/container.go github.com/sclevine/forge Container
@@ -40,7 +39,7 @@ type AppConfig struct {
 	StagingEnv map[string]string `yaml:"staging_env,omitempty"`
 	RunningEnv map[string]string `yaml:"running_env,omitempty"`
 	Env        map[string]string `yaml:"env,omitempty"`
-	Services   service.Services  `yaml:"services,omitempty"`
+	Services   Services          `yaml:"services,omitempty"`
 }
 
 type NetworkConfig struct {

@@ -18,7 +18,6 @@ import (
 	"github.com/docker/go-connections/nat"
 
 	"github.com/sclevine/forge/engine"
-	"github.com/sclevine/forge/service"
 )
 
 const runnerScript = `
@@ -192,7 +191,7 @@ func (r *Runner) buildContainerConfig(config *AppConfig, stack string, rsync, ne
 
 	services := config.Services
 	if services == nil {
-		services = service.Services{}
+		services = Services{}
 	}
 	vcapServices, err := json.Marshal(services)
 	if err != nil {

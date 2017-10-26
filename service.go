@@ -1,4 +1,4 @@
-package service
+package forge
 
 type Service struct {
 	Name           string                 `json:"name" yaml:"name"`
@@ -13,7 +13,7 @@ type Service struct {
 
 type Services map[string][]Service
 
-type ForwardConfig struct {
+type ForwardDetails struct {
 	Host     string
 	Port     string
 	User     string
