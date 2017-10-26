@@ -19,7 +19,7 @@ RUN \
   curl -L "https://storage.googleapis.com/golang/go1.9.1.linux-amd64.tar.gz" | tar -C /usr/local -xz && \
   git -C /tmp clone --single-branch https://github.com/cloudfoundry/diego-release && \
   cd /tmp/diego-release && \
-  git checkout "v1.29.0" && \
+  git checkout "v1.29.1" && \
   git submodule update --init --recursive \
     src/code.cloudfoundry.org/archiver \
     src/code.cloudfoundry.org/buildpackapplifecycle \
