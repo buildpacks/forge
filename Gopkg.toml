@@ -77,7 +77,7 @@ ignored = [
 
 [[constraint]]
   name = "github.com/cloudfoundry/bytefmt"
-  revision = "f4415fafc5619dd75599a54a7c91fb3948ad58bd"
+  revision = "df625de5ac824ed098ad814bd960b4c2dc481898"
 
 [[constraint]]
   name = "github.com/fatih/color"
@@ -105,7 +105,7 @@ ignored = [
 
 [[constraint]]
   name = "github.com/vito/go-interact"
-  revision = "c5a3f51ad50e34ec101050f69383caa75082f233"
+  revision = "cbd56b28e8411a00fd4b7f92e8c870581558bf26"
 
 [[constraint]]
   name = "golang.org/x/text"

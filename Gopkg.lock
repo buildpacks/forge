@@ -37,7 +37,7 @@
 [[projects]]
   name = "github.com/cloudfoundry/bytefmt"
   packages = ["."]
-  revision = "f4415fafc5619dd75599a54a7c91fb3948ad58bd"
+  revision = "df625de5ac824ed098ad814bd960b4c2dc481898"
 
 [[projects]]
   name = "github.com/docker/distribution"
@@ -122,7 +122,7 @@
 [[projects]]
   name = "github.com/vito/go-interact"
   packages = ["interact","interact/terminal"]
-  revision = "c5a3f51ad50e34ec101050f69383caa75082f233"
+  revision = "cbd56b28e8411a00fd4b7f92e8c870581558bf26"
 
 [[projects]]
   name = "golang.org/x/crypto"
@@ -154,6 +154,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "e9fc44f965b13c06ae12870865e7b2bb3818c46091ba4414bcaa37a245c8167d"
+  inputs-digest = "13b3ecf050837ded5dee616429f13d5bede4dc292de75d02d1ad91e1897e8a57"
   solver-name = "gps-cdcl"
   solver-version = 1
