@@ -25,6 +25,7 @@ RUN \
     src/code.cloudfoundry.org/buildpackapplifecycle \
     src/code.cloudfoundry.org/bytefmt \
     src/code.cloudfoundry.org/cacheddownloader \
+    src/code.cloudfoundry.org/goshims \
     src/code.cloudfoundry.org/lager \
     src/code.cloudfoundry.org/systemcerts \
     src/github.com/cloudfoundry-incubator/credhub-cli \
