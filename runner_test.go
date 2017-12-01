@@ -133,10 +133,10 @@ var _ = Describe("Runner", func() {
 			progress <- mockProgress{Value: "some-progress"}
 			close(progress)
 			config := &ExportConfig{
-				Droplet:  engine.NewStream(mockReadCloser{Value: "some-droplet"}, 100),
+				Droplet:   engine.NewStream(mockReadCloser{Value: "some-droplet"}, 100),
 				Lifecycle: engine.NewStream(mockReadCloser{Value: "some-lifecycle"}, 200),
-				Stack:    "some-stack",
-				Ref:      "some-ref",
+				Stack:     "some-stack",
+				Ref:       "some-ref",
 				AppConfig: &AppConfig{
 					Name:      "some-name",
 					Command:   "some-command",

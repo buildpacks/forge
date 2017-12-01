@@ -2,9 +2,9 @@ package engine
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"io"
-	"encoding/base64"
 
 	"github.com/docker/docker/api/types"
 	docker "github.com/docker/docker/client"

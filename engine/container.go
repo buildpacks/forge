@@ -247,7 +247,7 @@ func (c *Container) StreamFileFrom(path string) (Stream, error) {
 
 func (c *Container) StreamTarFrom(path string) (Stream, error) {
 	ctx := context.Background()
-	tar, stat, err := c.Docker.CopyFromContainer(ctx, c.id, path + "/.")
+	tar, stat, err := c.Docker.CopyFromContainer(ctx, c.id, path+"/.")
 	if err != nil {
 		return Stream{}, err
 	}
