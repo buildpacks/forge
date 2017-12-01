@@ -1,8 +1,6 @@
 package forge
 
-import (
-	"os"
-)
+import "os"
 
 type (
 	MockEngine    forgeEngine

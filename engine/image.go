@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"encoding/base64"
 
 	"github.com/docker/docker/api/types"
 	docker "github.com/docker/docker/client"
@@ -12,6 +13,13 @@ import (
 type Image struct {
 	Docker *docker.Client
 	Exit   <-chan struct{}
+}
+
+type RegistryCreds struct {
+	Username      string `json:"username"`
+	Password      string `json:"password"`
+	Email         string `json:"email"`
+	ServerAddress string `json:"serveraddress"`
 }
 
 type Progress interface {
@@ -43,11 +51,11 @@ func (i *Image) Build(tag string, dockerfile Stream) <-chan Progress {
 	return progress
 }
 
-func (i *Image) Pull(image string) <-chan Progress {
+func (i *Image) Pull(ref string) <-chan Progress {
 	ctx := context.Background()
 	progress := make(chan Progress, 1)
 
-	body, err := i.Docker.ImagePull(ctx, image, types.ImagePullOptions{})
+	body, err := i.Docker.ImagePull(ctx, ref, types.ImagePullOptions{})
 	if err != nil {
 		progress <- progressError{err}
 		close(progress)
@@ -55,6 +63,37 @@ func (i *Image) Pull(image string) <-chan Progress {
 	}
 	go i.checkBody(body, progress)
 	return progress
+}
+
+func (i *Image) Push(ref string, creds RegistryCreds) <-chan Progress {
+	ctx := context.Background()
+	progress := make(chan Progress, 1)
+
+	credsJSON, err := json.Marshal(creds)
+	if err != nil {
+		progress <- progressError{err}
+		close(progress)
+		return progress
+	}
+	body, err := i.Docker.ImagePush(ctx, ref, types.ImagePushOptions{
+		RegistryAuth: base64.StdEncoding.EncodeToString(credsJSON),
+	})
+	if err != nil {
+		progress <- progressError{err}
+		close(progress)
+		return progress
+	}
+	go i.checkBody(body, progress)
+	return progress
+}
+
+func (i *Image) Delete(id string) error {
+	ctx := context.Background()
+	_, err := i.Docker.ImageRemove(ctx, id, types.ImageRemoveOptions{
+		Force:         true,
+		PruneChildren: true,
+	})
+	return err
 }
 
 func (i *Image) checkBody(body io.ReadCloser, progress chan<- Progress) {

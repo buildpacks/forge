@@ -26,7 +26,6 @@ func (c *Config) Load() (*LocalYML, error) {
 		return nil, err
 	}
 	return localYML, nil
-
 }
 
 func (c *Config) Save(localYML *LocalYML) error {

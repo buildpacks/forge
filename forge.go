@@ -19,8 +19,10 @@ type Container interface {
 	HealthCheck() <-chan string
 	Commit(ref string) (imageID string, err error)
 	ExtractTo(tar io.Reader, path string) error
-	CopyTo(stream engine.Stream, path string) error
-	CopyFrom(path string) (engine.Stream, error)
+	StreamTarTo(stream engine.Stream, path string) error
+	StreamTarFrom(path string) (engine.Stream, error)
+	StreamFileTo(stream engine.Stream, path string) error
+	StreamFileFrom(path string) (engine.Stream, error)
 }
 
 type Loader interface {
@@ -48,18 +50,18 @@ type NetworkConfig struct {
 	HostPort    string
 }
 
-//go:generate mockgen -package mocks -destination mocks/versioner.go github.com/sclevine/forge versioner
+//go:generate mockgen -package mocks -destination mocks/versioner.go github.com/sclevine/forge/mocks Versioner
 type versioner interface {
 	Build(tmplURL, versionURL string) (string, error)
 }
 
-//go:generate mockgen -package mocks -destination mocks/image.go github.com/sclevine/forge forgeImage
+//go:generate mockgen -package mocks -destination mocks/image.go github.com/sclevine/forge/mocks Image
 type forgeImage interface {
-	Pull(image string) <-chan engine.Progress
+	Pull(ref string) <-chan engine.Progress
 	Build(tag string, dockerfile engine.Stream) <-chan engine.Progress
 }
 
-//go:generate mockgen -package mocks -destination mocks/engine.go github.com/sclevine/forge forgeEngine
+//go:generate mockgen -package mocks -destination mocks/engine.go github.com/sclevine/forge/mocks Engine
 type forgeEngine interface {
 	NewContainer(name string, config *container.Config, hostConfig *container.HostConfig) (Container, error)
 }

@@ -50,13 +50,13 @@ var _ = Describe("Runner", func() {
 			progress <- mockProgress{Value: "some-progress"}
 			close(progress)
 			config := &RunConfig{
-				Droplet:  engine.NewStream(mockReadCloser{Value: "some-droplet"}, 100),
-				Launcher: engine.NewStream(mockReadCloser{Value: "some-launcher"}, 200),
-				Stack:    "some-stack",
-				AppDir:   "some-app-dir",
-				RSync:    true,
-				Restart:  make(<-chan time.Time),
-				Color:    percentColor,
+				Droplet:   engine.NewStream(mockReadCloser{Value: "some-droplet"}, 100),
+				Lifecycle: engine.NewStream(mockReadCloser{Value: "some-lifecycle"}, 200),
+				Stack:     "some-stack",
+				AppDir:    "some-app-dir",
+				RSync:     true,
+				Restart:   make(<-chan time.Time),
+				Color:     percentColor,
 				AppConfig: &AppConfig{
 					Name:      "some-name",
 					Command:   "some-command",
@@ -107,13 +107,13 @@ var _ = Describe("Runner", func() {
 				}).Return(mockContainer, nil),
 			)
 
-			launcherCopy := mockContainer.EXPECT().CopyTo(config.Launcher, "/tmp/lifecycle/launcher")
-			dropletCopy := mockContainer.EXPECT().CopyTo(config.Droplet, "/tmp/droplet")
+			lifecycleCopy := mockContainer.EXPECT().StreamTarTo(config.Lifecycle, "/tmp/lifecycle")
+			dropletCopy := mockContainer.EXPECT().StreamFileTo(config.Droplet, "/tmp/droplet")
 
 			gomock.InOrder(
 				mockContainer.EXPECT().
 					Start("[some-name] % ", runner.Logs, config.Restart).Return(int64(100), nil).
-					After(launcherCopy).
+					After(lifecycleCopy).
 					After(dropletCopy),
 				mockContainer.EXPECT().
 					Close(),
@@ -128,13 +128,13 @@ var _ = Describe("Runner", func() {
 	})
 
 	Describe("#Export", func() {
-		It("should load the provided droplet into a Docker image with the launcher", func() {
+		It("should load the provided droplet into a Docker image with the lifecycle", func() {
 			progress := make(chan engine.Progress, 1)
 			progress <- mockProgress{Value: "some-progress"}
 			close(progress)
 			config := &ExportConfig{
 				Droplet:  engine.NewStream(mockReadCloser{Value: "some-droplet"}, 100),
-				Launcher: engine.NewStream(mockReadCloser{Value: "some-launcher"}, 200),
+				Lifecycle: engine.NewStream(mockReadCloser{Value: "some-lifecycle"}, 200),
 				Stack:    "some-stack",
 				Ref:      "some-ref",
 				AppConfig: &AppConfig{
@@ -178,12 +178,12 @@ var _ = Describe("Runner", func() {
 				}).Return(mockContainer, nil),
 			)
 
-			launcherCopy := mockContainer.EXPECT().CopyTo(config.Launcher, "/tmp/lifecycle/launcher")
-			dropletCopy := mockContainer.EXPECT().CopyTo(config.Droplet, "/tmp/droplet")
+			lifecycleCopy := mockContainer.EXPECT().StreamTarTo(config.Lifecycle, "/tmp/lifecycle")
+			dropletCopy := mockContainer.EXPECT().StreamFileTo(config.Droplet, "/tmp/droplet")
 
 			gomock.InOrder(
 				mockContainer.EXPECT().Commit("some-ref").Return("some-image-id", nil).
-					After(launcherCopy).After(dropletCopy),
+					After(lifecycleCopy).After(dropletCopy),
 				mockContainer.EXPECT().Close(),
 			)
 

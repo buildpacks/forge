@@ -68,7 +68,7 @@
   branch = "master"
   name = "github.com/golang/mock"
   packages = ["gomock","mockgen","mockgen/model"]
-  revision = "6e20fef50e74e443696bc32b693cf286b612d45b"
+  revision = "747e9e6390e12b0d987c261bdc89a51e76b9f5fc"
 
 [[projects]]
   name = "github.com/lunixbochs/vtclean"

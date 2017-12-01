@@ -213,7 +213,7 @@ func onlyReader(r io.Reader) io.Reader {
 	return struct{ io.Reader }{r}
 }
 
-func (c *Container) CopyTo(stream Stream, path string) error {
+func (c *Container) StreamFileTo(stream Stream, path string) error {
 	tar, err := tarFile(path, stream, stream.Size, 0755)
 	if err != nil {
 		return err
@@ -224,7 +224,14 @@ func (c *Container) CopyTo(stream Stream, path string) error {
 	return stream.Close()
 }
 
-func (c *Container) CopyFrom(path string) (Stream, error) {
+func (c *Container) StreamTarTo(stream Stream, path string) error {
+	if err := c.ExtractTo(stream, path); err != nil {
+		return err
+	}
+	return stream.Close()
+}
+
+func (c *Container) StreamFileFrom(path string) (Stream, error) {
 	ctx := context.Background()
 	tar, stat, err := c.Docker.CopyFromContainer(ctx, c.id, path)
 	if err != nil {
@@ -236,6 +243,15 @@ func (c *Container) CopyFrom(path string) (Stream, error) {
 		return Stream{}, err
 	}
 	return NewStream(splitReadCloser{reader, tar}, stat.Size), nil
+}
+
+func (c *Container) StreamTarFrom(path string) (Stream, error) {
+	ctx := context.Background()
+	tar, stat, err := c.Docker.CopyFromContainer(ctx, c.id, path + "/.")
+	if err != nil {
+		return Stream{}, err
+	}
+	return NewStream(tar, stat.Size), nil
 }
 
 func fileFromTar(name string, archive io.Reader) (file io.Reader, header *tar.Header, err error) {

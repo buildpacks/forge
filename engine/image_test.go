@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 
 	"github.com/docker/docker/api/types/strslice"
+	docker "github.com/docker/docker/client"
 	gouuid "github.com/nu7hatch/gouuid"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -66,7 +67,7 @@ var _ = Describe("Image", func() {
 			Expect(err).NotTo(HaveOccurred())
 			defer contr.Close()
 
-			outStream, err := contr.CopyFrom("/some-path")
+			outStream, err := contr.StreamFileFrom("/some-path")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(ioutil.ReadAll(outStream)).To(Equal([]byte("some-data\n")))
 		})
@@ -135,6 +136,8 @@ var _ = Describe("Image", func() {
 		})
 	})
 
+	// TODO: test push/pull/delete together with random ref
+
 	Describe("#Pull", func() {
 		// TODO: consider using a new image for this test
 		It("should pull a Docker image", func() {
@@ -163,7 +166,7 @@ var _ = Describe("Image", func() {
 			Expect(err).NotTo(HaveOccurred())
 			defer contr.Close()
 
-			outStream, err := contr.CopyFrom("/testfile")
+			outStream, err := contr.StreamFileFrom("/testfile")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(ioutil.ReadAll(outStream)).To(Equal([]byte("test-data\n")))
 		})
@@ -188,6 +191,39 @@ var _ = Describe("Image", func() {
 			}
 			Expect(err).To(MatchError(ContainSubstring("sclevine/bad-test")))
 			Expect(progress).To(BeClosed())
+		})
+	})
+
+	Describe("#Push", func() {
+		// TODO: setup test registry
+	})
+
+	Describe("#Delete", func() {
+		It("should delete a Docker image", func() {
+			uuid, err := gouuid.NewV4()
+			Expect(err).NotTo(HaveOccurred())
+			tag := fmt.Sprintf("some-image-%s", uuid)
+
+			dockerfile := bytes.NewBufferString("FROM sclevine/test")
+			dockerfileStream := NewStream(ioutil.NopCloser(dockerfile), int64(dockerfile.Len()))
+
+			progress := image.Build(tag, dockerfileStream)
+			for p := range progress {
+				_, err := p.Status()
+				Expect(err).NotTo(HaveOccurred())
+			}
+			defer clearImage(tag)
+
+			Expect(image.Delete(tag)).To(Succeed())
+
+			ctx := context.Background()
+			_, _, err = client.ImageInspectWithRaw(ctx, tag)
+			Expect(docker.IsErrNotFound(err)).To(BeTrue())
+		})
+
+		It("should return an error when deleting fails", func() {
+			err := image.Delete("-----")
+			Expect(err).To(MatchError(HaveSuffix("invalid reference format")))
 		})
 	})
 })

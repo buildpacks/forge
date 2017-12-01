@@ -56,5 +56,5 @@ const stageScript = `
 	su vcap -c "unzip -qq /tmp/some-checksum-two.zip -d /tmp/buildpacks/some-checksum-two" && rm /tmp/some-checksum-two.zip
 
 	chown -R vcap:vcap /tmp/app /tmp/cache
-	%ssu vcap -p -c "PATH=$PATH exec /tmp/lifecycle/builder -buildpackOrder $0 -skipDetect=$1"%s
+	%ssu vcap -p -c "PATH=$PATH exec /tmp/lifecycle/builder -buildpackOrder '$0' -skipDetect=$1"%s
 `

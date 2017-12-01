@@ -85,7 +85,7 @@ func (f *Forwarder) Forward(config *ForwardConfig) (health <-chan string, done f
 		return nil, nil, "", err
 	}
 
-	if err := contr.CopyTo(config.SSHPass, "/usr/bin/sshpass"); err != nil {
+	if err := contr.StreamFileTo(config.SSHPass, "/usr/bin/sshpass"); err != nil {
 		return nil, nil, "", err
 	}
 
@@ -104,7 +104,7 @@ func (f *Forwarder) Forward(config *ForwardConfig) (health <-chan string, done f
 					continue
 				}
 				codeStream := engine.NewStream(ioutil.NopCloser(bytes.NewBufferString(code)), int64(len(code)))
-				if err := contr.CopyTo(codeStream, "/tmp/ssh-code"); err != nil {
+				if err := contr.StreamFileTo(codeStream, "/tmp/ssh-code"); err != nil {
 					fmt.Fprintf(output, "%sError: %s\n", prefix, err)
 					continue
 				}

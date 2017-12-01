@@ -53,7 +53,7 @@ type Runner struct {
 
 type RunConfig struct {
 	Droplet       engine.Stream
-	Launcher      engine.Stream
+	Lifecycle     engine.Stream
 	Stack         string
 	AppDir        string
 	RSync         bool
@@ -103,10 +103,10 @@ func (r *Runner) Run(config *RunConfig) (status int64, err error) {
 	}
 	defer contr.Close()
 
-	if err := contr.CopyTo(config.Launcher, "/tmp/lifecycle/launcher"); err != nil {
+	if err := contr.StreamTarTo(config.Lifecycle, "/tmp/lifecycle"); err != nil {
 		return 0, err
 	}
-	if err := contr.CopyTo(config.Droplet, "/tmp/droplet"); err != nil {
+	if err := contr.StreamFileTo(config.Droplet, "/tmp/droplet"); err != nil {
 		return 0, err
 	}
 	return contr.Start(config.Color("[%s] ", config.AppConfig.Name), r.Logs, config.Restart)
@@ -114,7 +114,7 @@ func (r *Runner) Run(config *RunConfig) (status int64, err error) {
 
 type ExportConfig struct {
 	Droplet   engine.Stream
-	Launcher  engine.Stream
+	Lifecycle engine.Stream
 	Stack     string
 	Ref       string
 	AppConfig *AppConfig
@@ -136,10 +136,10 @@ func (r *Runner) Export(config *ExportConfig) (imageID string, err error) {
 	}
 	defer contr.Close()
 
-	if err := contr.CopyTo(config.Launcher, "/tmp/lifecycle/launcher"); err != nil {
+	if err := contr.StreamTarTo(config.Lifecycle, "/tmp/lifecycle"); err != nil {
 		return "", err
 	}
-	if err := contr.CopyTo(config.Droplet, "/tmp/droplet"); err != nil {
+	if err := contr.StreamFileTo(config.Droplet, "/tmp/droplet"); err != nil {
 		return "", err
 	}
 

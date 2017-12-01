@@ -4,6 +4,6 @@ set -e
 
 cd $(dirname "${BASH_SOURCE[0]}")/..
 
-go install github.com/sclevine/forge/vendor/github.com/golang/mock/mockgen
+go get github.com/golang/mock/gomock
 
 go generate $(go list ./... | grep -v /vendor/)

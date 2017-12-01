@@ -103,14 +103,14 @@ var _ = Describe("Stager", func() {
 				},
 			}
 
+			// TODO: extract into shared behavior for more complete tests
 			Expect(stager.SystemBuildpacks).NotTo(HaveLen(0))
 			for _, buildpack := range stager.SystemBuildpacks {
 				mockVersioner.EXPECT().Build(buildpack.URL, buildpack.VersionURL).Return(buildpack.Name+"-versioned-url", nil)
 			}
 
 			gomock.InOrder(
-				mockImage.EXPECT().Build(gomock.Any(), gomock.Any()).Do(func(tag string, dockerfile engine.Stream) {
-					Expect(tag).To(Equal("some-tag"))
+				mockImage.EXPECT().Build("some-tag", gomock.Any()).Do(func(_ string, dockerfile engine.Stream) {
 					dfBytes, err := ioutil.ReadAll(dockerfile)
 					Expect(err).NotTo(HaveOccurred())
 
@@ -137,8 +137,8 @@ var _ = Describe("Stager", func() {
 				}).Return(mockContainer, nil),
 			)
 
-			buildpackCopy1 := mockContainer.EXPECT().CopyTo(buildpackZipStream1, "/tmp/some-checksum-one.zip")
-			buildpackCopy2 := mockContainer.EXPECT().CopyTo(buildpackZipStream2, "/tmp/some-checksum-two.zip")
+			buildpackCopy1 := mockContainer.EXPECT().StreamFileTo(buildpackZipStream1, "/tmp/some-checksum-one.zip")
+			buildpackCopy2 := mockContainer.EXPECT().StreamFileTo(buildpackZipStream2, "/tmp/some-checksum-two.zip")
 			appExtract := mockContainer.EXPECT().ExtractTo(config.AppTar, "/tmp/app")
 			cacheExtract := mockContainer.EXPECT().ExtractTo(localCache, "/tmp/cache")
 
@@ -148,8 +148,8 @@ var _ = Describe("Stager", func() {
 					After(buildpackCopy2).
 					After(appExtract).
 					After(cacheExtract),
-				mockContainer.EXPECT().CopyFrom("/tmp/output-cache").Return(remoteCacheStream, nil),
-				mockContainer.EXPECT().CopyFrom("/tmp/droplet").Return(dropletStream, nil),
+				mockContainer.EXPECT().StreamFileFrom("/tmp/output-cache").Return(remoteCacheStream, nil),
+				mockContainer.EXPECT().StreamFileFrom("/tmp/droplet").Return(dropletStream, nil),
 				mockContainer.EXPECT().CloseAfterStream(&dropletStream),
 			)
 
@@ -174,41 +174,48 @@ var _ = Describe("Stager", func() {
 			progress <- mockProgress{Value: "some-progress"}
 			close(progress)
 
-			Expect(stager.SystemBuildpacks).NotTo(HaveLen(0))
-			for _, buildpack := range stager.SystemBuildpacks {
-				mockVersioner.EXPECT().Build(buildpack.URL, buildpack.VersionURL).Return(buildpack.Name+"-versioned-url", nil)
-			}
-
+			mockVersioner.EXPECT().Build(gomock.Any(), gomock.Any()).Times(len(stager.SystemBuildpacks))
 			gomock.InOrder(
-				mockImage.EXPECT().Build(gomock.Any(), gomock.Any()).Do(func(tag string, dockerfile engine.Stream) {
-					Expect(tag).To(Equal("some-tag"))
-					dfBytes, err := ioutil.ReadAll(dockerfile)
-					Expect(err).NotTo(HaveOccurred())
-
-					Expect(dockerfile.Size).To(Equal(int64(len(dfBytes))))
-					Expect(dfBytes).To(ContainSubstring("some-stack"))
-					Expect(dfBytes).To(ContainSubstring(`"some-buildpack-name-1-versioned-url"`))
-					Expect(dfBytes).To(ContainSubstring("/tmp/buildpacks/0d75acab3a54a7f434405f9cce289eb7"))
-					Expect(dfBytes).To(ContainSubstring(`"some-buildpack-name-2-versioned-url"`))
-					Expect(dfBytes).To(ContainSubstring("/tmp/buildpacks/d144777ad4a8489c942ce839db1ad73d"))
-				}).Return(progress),
-				mockEngine.EXPECT().NewContainer("download", gomock.Any(), gomock.Any()).Do(func(_ string, config *container.Config, hostConfig *container.HostConfig) {
+				mockImage.EXPECT().Build("some-tag", gomock.Any()).Return(progress),
+				mockEngine.EXPECT().NewContainer("download", gomock.Any(), nil).Do(func(_ string, config *container.Config, _ *container.HostConfig) {
 					Expect(config.Hostname).To(Equal("download"))
 					Expect(config.User).To(Equal("root"))
 					Expect(config.ExposedPorts).To(HaveLen(0))
 					Expect(config.Image).To(Equal("some-tag"))
 					Expect(config.Entrypoint).To(Equal(strslice.StrSlice{"read"}))
-					Expect(hostConfig).To(BeNil())
 				}).Return(mockContainer, nil),
 			)
 
 			stream := engine.NewStream(mockReadCloser{Value: "some-stream"}, 100)
 			gomock.InOrder(
-				mockContainer.EXPECT().CopyFrom("/some-path").Return(stream, nil),
+				mockContainer.EXPECT().StreamFileFrom("/some-path").Return(stream, nil),
 				mockContainer.EXPECT().CloseAfterStream(&stream),
 			)
 
 			Expect(stager.Download("/some-path", "some-stack")).To(Equal(stream))
+			Expect(mockLoader.Progress).To(Receive(Equal(mockProgress{Value: "some-progress"})))
+		})
+	})
+
+	Describe("#DownloadTar", func() {
+		It("should return an archive of the specified folder", func() {
+			progress := make(chan engine.Progress, 1)
+			progress <- mockProgress{Value: "some-progress"}
+			close(progress)
+
+			mockVersioner.EXPECT().Build(gomock.Any(), gomock.Any()).Times(len(stager.SystemBuildpacks))
+			gomock.InOrder(
+				mockImage.EXPECT().Build("some-tag", gomock.Any()).Return(progress),
+				mockEngine.EXPECT().NewContainer("download", gomock.Any(), nil).Return(mockContainer, nil),
+			)
+
+			stream := engine.NewStream(mockReadCloser{Value: "some-stream"}, 100)
+			gomock.InOrder(
+				mockContainer.EXPECT().StreamTarFrom("/some-path").Return(stream, nil),
+				mockContainer.EXPECT().CloseAfterStream(&stream),
+			)
+
+			Expect(stager.DownloadTar("/some-path", "some-stack")).To(Equal(stream))
 			Expect(mockLoader.Progress).To(Receive(Equal(mockProgress{Value: "some-progress"})))
 		})
 	})

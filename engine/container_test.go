@@ -18,7 +18,10 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 
+	"io"
+
 	. "github.com/sclevine/forge/engine"
+	"testing/iotest"
 )
 
 var _ = Describe("Container", func() {
@@ -254,7 +257,7 @@ var _ = Describe("Container", func() {
 				Expect(changesStatus(interval, check, "starting")).To(BeTrue())
 
 				empty := NewStream(ioutil.NopCloser(bytes.NewBufferString("\n")), 1)
-				Expect(contr.CopyTo(empty, "/tmp/healthy")).To(Succeed())
+				Expect(contr.StreamFileTo(empty, "/tmp/healthy")).To(Succeed())
 				Expect(changesStatus(interval, check, "healthy")).To(BeTrue())
 
 				exit <- struct{}{}
@@ -270,7 +273,7 @@ var _ = Describe("Container", func() {
 
 			inBuffer := bytes.NewBufferString("some-data")
 			inStream := NewStream(ioutil.NopCloser(inBuffer), int64(inBuffer.Len()))
-			Expect(contr.CopyTo(inStream, "/some-path")).To(Succeed())
+			Expect(contr.StreamFileTo(inStream, "/some-path")).To(Succeed())
 
 			uuid, err := gouuid.NewV4()
 			Expect(err).NotTo(HaveOccurred())
@@ -293,7 +296,7 @@ var _ = Describe("Container", func() {
 			Expect(err).NotTo(HaveOccurred())
 			defer contr2.Close()
 
-			outStream, err := contr2.CopyFrom("/some-path")
+			outStream, err := contr2.StreamFileFrom("/some-path")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(ioutil.ReadAll(outStream)).To(Equal([]byte("some-data")))
 			Expect(outStream.Size).To(Equal(inStream.Size))
@@ -306,54 +309,141 @@ var _ = Describe("Container", func() {
 	})
 
 	Describe("#ExtractTo", func() {
-		It("should extract the provided tarball into the container without closing it", func() {
+		It("should copy a tarball into and out of the container and not close the input", func() {
 			tarBuffer := &bytes.Buffer{}
-			tarball := tar.NewWriter(tarBuffer)
-			Expect(tarball.WriteHeader(&tar.Header{Name: "some-file", Size: 9, Mode: 0755})).To(Succeed())
-			Expect(tarball.Write([]byte("some-data"))).To(Equal(9))
-			Expect(tarball.Close()).To(Succeed())
+			tarIn := tar.NewWriter(tarBuffer)
+			Expect(tarIn.WriteHeader(&tar.Header{Name: "some-file-1", Size: 11, Mode: 0755})).To(Succeed())
+			Expect(tarIn.Write([]byte("some-data-1"))).To(Equal(11))
+			Expect(tarIn.WriteHeader(&tar.Header{Name: "some-file-2", Size: 12, Mode: 0600})).To(Succeed())
+			Expect(tarIn.Write([]byte("some-data-10"))).To(Equal(12))
+			Expect(tarIn.Close()).To(Succeed())
 
-			tar := &closeTester{Reader: tarBuffer}
-			Expect(contr.ExtractTo(tar, "/root")).To(Succeed())
-			outStream, err := contr.CopyFrom("/root/some-file")
+			tarCloser := &closeTester{Reader: tarBuffer}
+			Expect(contr.ExtractTo(tarCloser, "/root")).To(Succeed())
+			Expect(tarCloser.closed).To(BeFalse())
+
+			tarResult, err := contr.StreamTarFrom("/root")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(ioutil.ReadAll(outStream)).To(Equal([]byte("some-data")))
-			Expect(outStream.Size).To(Equal(int64(9)))
-			Expect(tar.closed).To(BeFalse())
+			defer tarResult.Close()
+			tarOut := tar.NewReader(tarResult)
+
+			header1, err := tarOut.Next()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(header1.Name).To(Equal("./"))
+
+			header2, err := tarOut.Next()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(header2.Name).To(Equal("./some-file-1"))
+			Expect(header2.Size).To(Equal(int64(11)))
+			Expect(header2.Mode).To(Equal(int64(0100755)))
+			Expect(ioutil.ReadAll(tarOut)).To(Equal([]byte("some-data-1")))
+
+			header3, err := tarOut.Next()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(header3.Name).To(Equal("./some-file-2"))
+			Expect(header3.Size).To(Equal(int64(12)))
+			Expect(header3.Mode).To(Equal(int64(0100600)))
+			Expect(ioutil.ReadAll(tarOut)).To(Equal([]byte("some-data-10")))
 		})
 
-		It("should return an error if extracting fails", func() {
+		It("should return an error if copying in fails", func() {
 			err := contr.ExtractTo(nil, "/some-bad-path")
 			Expect(err).To(MatchError(ContainSubstring("some-bad-path")))
 		})
 	})
 
-	Describe("#CopyTo", func() {
+	Describe("#StreamTarTo / #StreamTarFrom", func() {
+		It("should copy a tarball into and out of the container and not close the input", func() {
+			tarBuffer := &bytes.Buffer{}
+			tarIn := tar.NewWriter(tarBuffer)
+			Expect(tarIn.WriteHeader(&tar.Header{Name: "some-file-1", Size: 11, Mode: 0755})).To(Succeed())
+			Expect(tarIn.Write([]byte("some-data-1"))).To(Equal(11))
+			Expect(tarIn.WriteHeader(&tar.Header{Name: "some-file-2", Size: 12, Mode: 0600})).To(Succeed())
+			Expect(tarIn.Write([]byte("some-data-10"))).To(Equal(12))
+			Expect(tarIn.Close()).To(Succeed())
+
+			tarCloser := &closeTester{Reader: tarBuffer}
+			tarStream := NewStream(tarCloser, int64(tarBuffer.Len()))
+			Expect(contr.StreamTarTo(tarStream, "/root")).To(Succeed())
+			Expect(tarCloser.closed).To(BeTrue())
+
+			tarResult, err := contr.StreamTarFrom("/root")
+			Expect(err).NotTo(HaveOccurred())
+			defer tarResult.Close()
+			tarOut := tar.NewReader(tarResult)
+
+			header1, err := tarOut.Next()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(header1.Name).To(Equal("./"))
+
+			header2, err := tarOut.Next()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(header2.Name).To(Equal("./some-file-1"))
+			Expect(header2.Size).To(Equal(int64(11)))
+			Expect(header2.Mode).To(Equal(int64(0100755)))
+			Expect(ioutil.ReadAll(tarOut)).To(Equal([]byte("some-data-1")))
+
+			header3, err := tarOut.Next()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(header3.Name).To(Equal("./some-file-2"))
+			Expect(header3.Size).To(Equal(int64(12)))
+			Expect(header3.Mode).To(Equal(int64(0100600)))
+			Expect(ioutil.ReadAll(tarOut)).To(Equal([]byte("some-data-10")))
+
+			_, err = tarOut.Next()
+			Expect(err).To(Equal(io.EOF))
+
+			Expect(tarResult.Close()).To(Succeed())
+
+			tarResult2, err := contr.StreamTarFrom("/root/")
+			Expect(err).NotTo(HaveOccurred())
+			defer tarResult2.Close()
+			headerDir, err := tar.NewReader(tarResult2).Next()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(headerDir.Name).To(Equal("./"))
+		})
+
+		It("should return an error if copying out fails", func() {
+			_, err := contr.StreamTarFrom("/some-bad-path")
+			Expect(err).To(MatchError(ContainSubstring("some-bad-path")))
+		})
+
+		It("should return an error if copying in fails", func() {
+			errReader := ioutil.NopCloser(iotest.DataErrReader(&bytes.Buffer{}))
+			err := contr.StreamTarTo(NewStream(errReader, 0), "/some-bad-path")
+			Expect(err).To(MatchError(ContainSubstring("some-bad-path")))
+		})
+	})
+
+	Describe("#StreamFileTo / #StreamFileFrom", func() {
 		It("should copy the stream into the container and close it", func() {
 			inBuffer := bytes.NewBufferString("some-data")
 			inCloseTester := &closeTester{Reader: inBuffer}
 			inStream := NewStream(inCloseTester, int64(inBuffer.Len()))
-			Expect(contr.CopyTo(inStream, "/some-path/some-file")).To(Succeed())
+			Expect(contr.StreamFileTo(inStream, "/some-path/some-file")).To(Succeed())
 
 			Expect(inCloseTester.closed).To(BeTrue())
 
-			outStream, err := contr.CopyFrom("/some-path/some-file")
+			outStream, err := contr.StreamFileFrom("/some-path/some-file")
 			Expect(err).NotTo(HaveOccurred())
+			defer outStream.Close()
 			Expect(ioutil.ReadAll(outStream)).To(Equal([]byte("some-data")))
 			Expect(outStream.Size).To(Equal(inStream.Size))
+			Expect(outStream.Close()).To(Succeed())
+			// TODO: test closing of tar
 		})
 
 		It("should return an error if tarring fails", func() {
 			inBuffer := bytes.NewBufferString("some-data")
 			inStream := NewStream(&closeTester{Reader: inBuffer}, 100)
-			err := contr.CopyTo(inStream, "/some-path/some-file")
+			err := contr.StreamFileTo(inStream, "/some-path/some-file")
 			Expect(err).To(MatchError("EOF"))
 		})
 
-		It("should return an error if extracting fails", func() {
+		It("should return an error if copy to fails", func() {
 			inBuffer := bytes.NewBufferString("some-data")
 			inStream := NewStream(&closeTester{Reader: inBuffer}, int64(inBuffer.Len()))
-			err := contr.CopyTo(inStream, "/")
+			err := contr.StreamFileTo(inStream, "/")
 			Expect(err).To(MatchError(ContainSubstring("cannot overwrite")))
 		})
 
@@ -361,29 +451,17 @@ var _ = Describe("Container", func() {
 			inBuffer := bytes.NewBufferString("some-data")
 			inCloseTester := &closeTester{Reader: inBuffer, err: errors.New("some error")}
 			inStream := NewStream(inCloseTester, int64(inBuffer.Len()))
-			err := contr.CopyTo(inStream, "/some-path/some-file")
+			err := contr.StreamFileTo(inStream, "/some-path/some-file")
 			Expect(err).To(MatchError("some error"))
 		})
-	})
 
-	Describe("#CopyFrom", func() {
-		It("should copy the contents of a file out of the container", func() {
-			stream, err := contr.CopyFrom("/testfile")
-			Expect(err).NotTo(HaveOccurred())
-			defer stream.Close()
-			Expect(ioutil.ReadAll(stream)).To(Equal([]byte("test-data\n")))
-			Expect(stream.Size).To(Equal(int64(10)))
-			Expect(stream.Close()).To(Succeed())
-			// TODO: test closing of tar
-		})
-
-		It("should return an error if copying fails", func() {
-			_, err := contr.CopyFrom("/some-bad-path")
+		It("should return an error if copying from fails", func() {
+			_, err := contr.StreamFileFrom("/some-bad-path")
 			Expect(err).To(MatchError(ContainSubstring("some-bad-path")))
 		})
 
 		It("should return an error if untarring fails", func() {
-			_, err := contr.CopyFrom("/root")
+			_, err := contr.StreamFileFrom("/root")
 			Expect(err).To(MatchError("EOF"))
 			// TODO: test closing of tar
 		})

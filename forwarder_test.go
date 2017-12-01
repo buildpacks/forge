@@ -114,7 +114,7 @@ var _ = Describe("Forwarder", func() {
 				Expect(hostConfig.NetworkMode).To(Equal(container.NetworkMode("container:some-id")))
 			}).Return(mockContainer, nil).After(background)
 
-			mockContainer.EXPECT().CopyTo(config.SSHPass, "/usr/bin/sshpass")
+			mockContainer.EXPECT().StreamFileTo(config.SSHPass, "/usr/bin/sshpass")
 			mockContainer.EXPECT().HealthCheck().Return(mockHealth)
 
 			health, done, id, err := forwarder.Forward(config)
@@ -123,7 +123,7 @@ var _ = Describe("Forwarder", func() {
 			Expect(id).To(Equal("some-id"))
 
 			gomock.InOrder(
-				mockContainer.EXPECT().CopyTo(gomock.Any(), "/tmp/ssh-code").Do(func(stream engine.Stream, _ string) {
+				mockContainer.EXPECT().StreamFileTo(gomock.Any(), "/tmp/ssh-code").Do(func(stream engine.Stream, _ string) {
 					defer GinkgoRecover()
 					defer stream.Close()
 					Expect(ioutil.ReadAll(stream)).To(Equal([]byte("some-code-1")))
@@ -131,7 +131,7 @@ var _ = Describe("Forwarder", func() {
 				mockContainer.EXPECT().Start("[some-name tunnel] % ", gomock.Any(), nil).Do(func(_ string, output io.Writer, _ <-chan time.Time) {
 					fmt.Fprint(output, "start-1")
 				}).Return(int64(100), nil),
-				mockContainer.EXPECT().CopyTo(gomock.Any(), "/tmp/ssh-code").Do(func(stream engine.Stream, _ string) {
+				mockContainer.EXPECT().StreamFileTo(gomock.Any(), "/tmp/ssh-code").Do(func(stream engine.Stream, _ string) {
 					defer GinkgoRecover()
 					defer stream.Close()
 					Expect(ioutil.ReadAll(stream)).To(Equal([]byte("some-code-2")))

@@ -84,31 +84,6 @@ func (mr *MockContainerMockRecorder) Commit(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockContainer)(nil).Commit), arg0)
 }
 
-// CopyFrom mocks base method
-func (m *MockContainer) CopyFrom(arg0 string) (engine.Stream, error) {
-	ret := m.ctrl.Call(m, "CopyFrom", arg0)
-	ret0, _ := ret[0].(engine.Stream)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CopyFrom indicates an expected call of CopyFrom
-func (mr *MockContainerMockRecorder) CopyFrom(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CopyFrom", reflect.TypeOf((*MockContainer)(nil).CopyFrom), arg0)
-}
-
-// CopyTo mocks base method
-func (m *MockContainer) CopyTo(arg0 engine.Stream, arg1 string) error {
-	ret := m.ctrl.Call(m, "CopyTo", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// CopyTo indicates an expected call of CopyTo
-func (mr *MockContainerMockRecorder) CopyTo(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CopyTo", reflect.TypeOf((*MockContainer)(nil).CopyTo), arg0, arg1)
-}
-
 // ExtractTo mocks base method
 func (m *MockContainer) ExtractTo(arg0 io.Reader, arg1 string) error {
 	ret := m.ctrl.Call(m, "ExtractTo", arg0, arg1)
@@ -156,4 +131,54 @@ func (m *MockContainer) Start(arg0 string, arg1 io.Writer, arg2 <-chan time.Time
 // Start indicates an expected call of Start
 func (mr *MockContainerMockRecorder) Start(arg0, arg1, arg2 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockContainer)(nil).Start), arg0, arg1, arg2)
+}
+
+// StreamFileFrom mocks base method
+func (m *MockContainer) StreamFileFrom(arg0 string) (engine.Stream, error) {
+	ret := m.ctrl.Call(m, "StreamFileFrom", arg0)
+	ret0, _ := ret[0].(engine.Stream)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// StreamFileFrom indicates an expected call of StreamFileFrom
+func (mr *MockContainerMockRecorder) StreamFileFrom(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StreamFileFrom", reflect.TypeOf((*MockContainer)(nil).StreamFileFrom), arg0)
+}
+
+// StreamFileTo mocks base method
+func (m *MockContainer) StreamFileTo(arg0 engine.Stream, arg1 string) error {
+	ret := m.ctrl.Call(m, "StreamFileTo", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// StreamFileTo indicates an expected call of StreamFileTo
+func (mr *MockContainerMockRecorder) StreamFileTo(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StreamFileTo", reflect.TypeOf((*MockContainer)(nil).StreamFileTo), arg0, arg1)
+}
+
+// StreamTarFrom mocks base method
+func (m *MockContainer) StreamTarFrom(arg0 string) (engine.Stream, error) {
+	ret := m.ctrl.Call(m, "StreamTarFrom", arg0)
+	ret0, _ := ret[0].(engine.Stream)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// StreamTarFrom indicates an expected call of StreamTarFrom
+func (mr *MockContainerMockRecorder) StreamTarFrom(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StreamTarFrom", reflect.TypeOf((*MockContainer)(nil).StreamTarFrom), arg0)
+}
+
+// StreamTarTo mocks base method
+func (m *MockContainer) StreamTarTo(arg0 engine.Stream, arg1 string) error {
+	ret := m.ctrl.Call(m, "StreamTarTo", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// StreamTarTo indicates an expected call of StreamTarTo
+func (mr *MockContainerMockRecorder) StreamTarTo(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StreamTarTo", reflect.TypeOf((*MockContainer)(nil).StreamTarTo), arg0, arg1)
 }

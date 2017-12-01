@@ -29,7 +29,7 @@ const stagerScript = `
 	{{- end}}
 
 	chown -R vcap:vcap /tmp/app /tmp/cache
-	{{if not .RSync}}exec {{end}}su vcap -p -c "PATH=$PATH exec /tmp/lifecycle/builder -buildpackOrder $0 -skipDetect=$1"
+	{{if not .RSync}}exec {{end}}su vcap -p -c "PATH=$PATH exec /tmp/lifecycle/builder -buildpackOrder '$0' -skipDetect=$1"
 	{{- if .RSync}}
 	rsync -a /tmp/app/ /tmp/local/
 	{{- end}}
@@ -107,7 +107,7 @@ func (s *Stager) Stage(config *StageConfig) (droplet engine.Stream, err error) {
 	}
 	defer contr.CloseAfterStream(&droplet)
 	for checksum, zip := range config.BuildpackZips {
-		if err := contr.CopyTo(zip, fmt.Sprintf("/tmp/%s.zip", checksum)); err != nil {
+		if err := contr.StreamFileTo(zip, fmt.Sprintf("/tmp/%s.zip", checksum)); err != nil {
 			return engine.Stream{}, err
 		}
 	}
@@ -136,7 +136,7 @@ func (s *Stager) Stage(config *StageConfig) (droplet engine.Stream, err error) {
 		return engine.Stream{}, err
 	}
 
-	return contr.CopyFrom("/tmp/droplet")
+	return contr.StreamFileFrom("/tmp/droplet")
 }
 
 func (s *Stager) buildContainerConfig(config *AppConfig, buildpackMD5s []string, forceDetect, rsync bool) (*container.Config, error) {
@@ -238,7 +238,7 @@ func (*Stager) buildHostConfig(appDir, remoteDir string) *container.HostConfig {
 }
 
 func streamOut(contr Container, out io.Writer, path string) error {
-	stream, err := contr.CopyFrom(path)
+	stream, err := contr.StreamFileFrom(path)
 	if err != nil {
 		return err
 	}
@@ -246,8 +246,26 @@ func streamOut(contr Container, out io.Writer, path string) error {
 }
 
 func (s *Stager) Download(path, stack string) (stream engine.Stream, err error) {
-	if err := s.buildDockerfile(stack); err != nil {
+	contr, err := s.container(stack)
+	if err != nil {
 		return engine.Stream{}, err
+	}
+	defer contr.CloseAfterStream(&stream)
+	return contr.StreamFileFrom(path)
+}
+
+func (s *Stager) DownloadTar(path, stack string) (stream engine.Stream, err error) {
+	contr, err := s.container(stack)
+	if err != nil {
+		return engine.Stream{}, err
+	}
+	defer contr.CloseAfterStream(&stream)
+	return contr.StreamTarFrom(path)
+}
+
+func (s *Stager) container(stack string) (Container, error) {
+	if err := s.buildDockerfile(stack); err != nil {
+		return nil, err
 	}
 	containerConfig := &container.Config{
 		Hostname:   "download",
@@ -257,10 +275,9 @@ func (s *Stager) Download(path, stack string) (stream engine.Stream, err error) 
 	}
 	contr, err := s.engine.NewContainer("download", containerConfig, nil)
 	if err != nil {
-		return engine.Stream{}, err
+		return nil, err
 	}
-	defer contr.CloseAfterStream(&stream)
-	return contr.CopyFrom(path)
+	return contr, nil
 }
 
 func (s *Stager) buildDockerfile(stack string) error {
