@@ -23,6 +23,7 @@ type Container interface {
 	StreamTarFrom(path string) (engine.Stream, error)
 	StreamFileTo(stream engine.Stream, path string) error
 	StreamFileFrom(path string) (engine.Stream, error)
+	Mkdir(path string) error
 }
 
 type Loader interface {

@@ -107,13 +107,14 @@ var _ = Describe("Runner", func() {
 				}).Return(mockContainer, nil),
 			)
 
+			mkdir := mockContainer.EXPECT().Mkdir("/tmp/lifecycle")
 			lifecycleCopy := mockContainer.EXPECT().StreamTarTo(config.Lifecycle, "/tmp/lifecycle")
 			dropletCopy := mockContainer.EXPECT().StreamFileTo(config.Droplet, "/tmp/droplet")
 
 			gomock.InOrder(
 				mockContainer.EXPECT().
 					Start("[some-name] % ", runner.Logs, config.Restart).Return(int64(100), nil).
-					After(lifecycleCopy).
+					After(lifecycleCopy.After(mkdir)).
 					After(dropletCopy),
 				mockContainer.EXPECT().
 					Close(),

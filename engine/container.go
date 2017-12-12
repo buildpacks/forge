@@ -2,10 +2,12 @@ package engine
 
 import (
 	"archive/tar"
+	"bytes"
 	"context"
 	"encoding/binary"
 	"fmt"
 	"io"
+	"io/ioutil"
 	gopath "path"
 	"strings"
 	"time"
@@ -266,6 +268,28 @@ func fileFromTar(name string, archive io.Reader) (file io.Reader, header *tar.He
 		}
 	}
 	return tarball, header, nil
+}
+
+func (c *Container) Mkdir(path string) error {
+	var (
+		basename  = gopath.Base(path)
+		dirname   = gopath.Dir(path)
+		tarBuffer = &bytes.Buffer{}
+		tarIn     = tar.NewWriter(tarBuffer)
+	)
+
+	if err := tarIn.WriteHeader(&tar.Header{
+		Name:     basename,
+		Mode:     0755,
+		Typeflag: tar.TypeDir,
+	}); err != nil {
+		return err
+	}
+	if err := tarIn.Close(); err != nil {
+		return err
+	}
+	tarStream := NewStream(ioutil.NopCloser(tarBuffer), int64(tarBuffer.Len()))
+	return c.StreamTarTo(tarStream, dirname)
 }
 
 type splitReadCloser struct {

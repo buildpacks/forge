@@ -120,6 +120,18 @@ func (mr *MockContainerMockRecorder) ID() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ID", reflect.TypeOf((*MockContainer)(nil).ID))
 }
 
+// Mkdir mocks base method
+func (m *MockContainer) Mkdir(arg0 string) error {
+	ret := m.ctrl.Call(m, "Mkdir", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Mkdir indicates an expected call of Mkdir
+func (mr *MockContainerMockRecorder) Mkdir(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Mkdir", reflect.TypeOf((*MockContainer)(nil).Mkdir), arg0)
+}
+
 // Start mocks base method
 func (m *MockContainer) Start(arg0 string, arg1 io.Writer, arg2 <-chan time.Time) (int64, error) {
 	ret := m.ctrl.Call(m, "Start", arg0, arg1, arg2)

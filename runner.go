@@ -103,6 +103,9 @@ func (r *Runner) Run(config *RunConfig) (status int64, err error) {
 	}
 	defer contr.Close()
 
+	if err := contr.Mkdir("/tmp/lifecycle"); err != nil {
+		return 0, err
+	}
 	if err := contr.StreamTarTo(config.Lifecycle, "/tmp/lifecycle"); err != nil {
 		return 0, err
 	}

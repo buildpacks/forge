@@ -466,4 +466,35 @@ var _ = Describe("Container", func() {
 			// TODO: test closing of tar
 		})
 	})
+
+	Describe("#Mkdir", func() {
+		It("should create a directory in the container", func() {
+			Expect(contr.Mkdir("/root/some-dir")).To(Succeed())
+
+			tarResult, err := contr.StreamTarFrom("/root")
+			Expect(err).NotTo(HaveOccurred())
+			defer tarResult.Close()
+			tarOut := tar.NewReader(tarResult)
+
+			header1, err := tarOut.Next()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(header1.Name).To(Equal("./"))
+
+			header2, err := tarOut.Next()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(header2.Name).To(Equal("./some-dir/"))
+			Expect(header2.Mode).To(Equal(int64(040755)))
+			Expect(header2.Typeflag).To(Equal(uint8(tar.TypeDir)))
+
+			_, err = tarOut.Next()
+			Expect(err).To(Equal(io.EOF))
+
+			Expect(tarResult.Close()).To(Succeed())
+		})
+
+		It("should return an error if creating the directory fails", func() {
+			err := contr.Mkdir("/some-bad-path/some-dir")
+			Expect(err).To(MatchError(ContainSubstring("some-bad-path")))
+		})
+	})
 })
