@@ -32,8 +32,9 @@ RUN \
     src/gopkg.in/yaml.v2 && \
   export PATH=/usr/local/go/bin:$PATH && \
   export GOPATH=/tmp/diego-release && \
-  go build -o /tmp/lifecycle/launcher code.cloudfoundry.org/buildpackapplifecycle/launcher && \
-  go build -o /tmp/lifecycle/builder code.cloudfoundry.org/buildpackapplifecycle/builder && \
+  CGO_ENABLED=0 go build -a -installsuffix static -o /tmp/lifecycle/builder code.cloudfoundry.org/buildpackapplifecycle/builder && \
+  CGO_ENABLED=0 go build -a -installsuffix static -o /tmp/lifecycle/launcher code.cloudfoundry.org/buildpackapplifecycle/launcher && \
+  CGO_ENABLED=0 go build -a -installsuffix static -o /tmp/lifecycle/shell code.cloudfoundry.org/buildpackapplifecycle/shell/shell && \
   rm -rf /tmp/diego-release /usr/local/go
 
 USER vcap
