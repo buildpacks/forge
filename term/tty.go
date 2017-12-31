@@ -3,11 +3,7 @@ package term
 import (
 	"io"
 	"os"
-	"os/signal"
-	"runtime"
 	"sync"
-	"syscall"
-	"time"
 
 	"github.com/docker/docker/pkg/term"
 )
@@ -22,7 +18,7 @@ func (t *TTY) Run(remoteIn io.Reader, remoteOut io.Writer, resize func(h, w uint
 	outFd, outIsTerm := term.GetFdInfo(t.Out)
 
 	if inIsTerm {
-		size := t.winsize(outFd)
+		size := winsize(outFd)
 		if err := resize(size.Height, size.Width); err != nil {
 			return err
 		}
@@ -41,25 +37,9 @@ func (t *TTY) Run(remoteIn io.Reader, remoteOut io.Writer, resize func(h, w uint
 	go copy(wg, remoteOut, t.In)
 
 	if outIsTerm {
-		resized := make(chan os.Signal, 16)
-
-		if runtime.GOOS == "windows" {
-			ticker := time.NewTicker(250 * time.Millisecond)
-			defer ticker.Stop()
-
-			go func() {
-				defer close(resized)
-				for range ticker.C {
-					resized <- syscall.Signal(-1)
-				}
-			}()
-		} else {
-			defer close(resized)
-			signal.Notify(resized, syscall.SIGWINCH)
-			defer signal.Stop(resized)
-		}
-
-		go t.resize(resized, resize, outFd)
+		r, done := resized()
+		defer done()
+		go t.resize(r, resize, outFd)
 	}
 
 	wg.Wait()
@@ -69,7 +49,7 @@ func (t *TTY) Run(remoteIn io.Reader, remoteOut io.Writer, resize func(h, w uint
 func (t *TTY) resize(resized <-chan os.Signal, resize func(h, w uint16) error, fd uintptr) {
 	var h, w uint16
 	for range resized {
-		size := t.winsize(fd)
+		size := winsize(fd)
 		if size.Height == h && size.Width == w {
 			continue
 		}
@@ -79,7 +59,7 @@ func (t *TTY) resize(resized <-chan os.Signal, resize func(h, w uint16) error, f
 	}
 }
 
-func (t *TTY) winsize(fd uintptr) *term.Winsize {
+func winsize(fd uintptr) *term.Winsize {
 	size, err := term.GetWinsize(fd)
 	if err != nil {
 		size = &term.Winsize{
