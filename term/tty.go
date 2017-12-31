@@ -9,7 +9,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/sclevine/docker/pkg/term"
+	"github.com/docker/docker/pkg/term"
 )
 
 type TTY struct {
