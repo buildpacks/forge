@@ -6,7 +6,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"testing/iotest"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -18,11 +20,15 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 
-	"io"
-
 	. "github.com/sclevine/forge/engine"
-	"testing/iotest"
+	"github.com/sclevine/forge/testutil"
 )
+
+type testTTY func(io.Reader, io.Writer, func(h, w uint16) error) error
+
+func (t testTTY) Run(remoteIn io.Reader, remoteOut io.Writer, resize func(h, w uint16) error) error {
+	return t(remoteIn, remoteOut, resize)
+}
 
 var _ = Describe("Container", func() {
 	var (
@@ -39,6 +45,7 @@ var _ = Describe("Container", func() {
 	})
 
 	JustBeforeEach(func() {
+		// TODO: specify user
 		config = &container.Config{
 			Healthcheck: healthcheck,
 			Hostname:    "test-container",
@@ -152,24 +159,24 @@ var _ = Describe("Container", func() {
 				}
 			})
 
-			It("should start the container, stream logs, and return status 128", func(done Done) {
+			It("should start the container, stream logs, and return status 128", func() {
+				wait := testutil.Wait(2)
+				defer wait()
+
 				exit := make(chan struct{})
 				contr.Exit = exit
 
 				logs := gbytes.NewBuffer()
 				go func() {
-					defer close(done)
+					defer wait()
 					defer GinkgoRecover()
 					Expect(contr.Start("some-prefix", logs, nil)).To(Equal(int64(128)))
 				}()
 				Eventually(try(containerRunning, contr.ID())).Should(BeTrue())
 				Eventually(logs.Contents).Should(ContainSubstring("Z some-logs-stdout"))
 				Eventually(logs.Contents).Should(ContainSubstring("Z some-logs-stderr"))
-
 				close(exit)
-
-				Eventually(try(containerRunning, contr.ID())).Should(BeFalse())
-			}, 5)
+			})
 		})
 
 		Context("when signaled to restart", func() {
@@ -182,14 +189,17 @@ var _ = Describe("Container", func() {
 				}
 			})
 
-			It("should restart until signaled to exit then return status 128", func(done Done) {
+			It("should restart until signaled to exit then return status 128", func() {
+				wait := testutil.Wait(2)
+				defer wait()
+
 				exit := make(chan struct{})
 				restart := make(chan time.Time)
 				contr.Exit = exit
 
 				logs := gbytes.NewBuffer()
 				go func() {
-					defer close(done)
+					defer wait()
 					defer GinkgoRecover()
 					Expect(contr.Start("some-prefix", logs, restart)).To(Equal(int64(128)))
 				}()
@@ -202,9 +212,7 @@ var _ = Describe("Container", func() {
 
 				Consistently(logs, "2s").ShouldNot(gbytes.Say("Z some-logs-stdout"))
 				close(exit)
-
-				Eventually(try(containerRunning, contr.ID())).Should(BeFalse())
-			}, 15)
+			})
 		})
 
 		Context("when the command finishes successfully", func() {
@@ -228,8 +236,121 @@ var _ = Describe("Container", func() {
 
 		It("should return an error when the container cannot be started", func() {
 			Expect(contr.Close()).To(Succeed())
-			_, err := contr.Start("some-prefix", gbytes.NewBuffer(), nil)
+			_, err := contr.Start("some-prefix", ioutil.Discard, nil)
 			Expect(err).To(MatchError(ContainSubstring("No such container")))
+		})
+	})
+
+	Describe("#Shell", func() {
+		BeforeEach(func() {
+			entrypoint = strslice.StrSlice{"sh", "-c", "sleep 5"}
+		})
+
+		It("should connect a local terminal to the container", func() {
+			wait := testutil.Wait(2)
+			defer wait()
+
+			exit := make(chan struct{})
+			contr.Exit = exit
+
+			go func() {
+				defer wait()
+				defer GinkgoRecover()
+				Expect(contr.Start("some-prefix", ioutil.Discard, nil)).To(Equal(int64(128)))
+			}()
+
+			Eventually(try(containerRunning, contr.ID())).Should(BeTrue())
+			tty := testTTY(func(in io.Reader, out io.Writer, resize func(h, w uint16) error) error {
+				inBuf := &bytes.Buffer{}
+				go io.Copy(inBuf, in)
+				Expect(fmt.Fprint(out, "cat /testfile\n")).To(Equal(14))
+				Eventually(inBuf.String).Should(ContainSubstring("cat /testfile\r\ntest-data"))
+				Expect(resize(40, 50)).To(Succeed())
+				Expect(fmt.Fprint(out, "stty size\n")).To(Equal(10))
+				Eventually(inBuf.String).Should(ContainSubstring("40 50\r\n"))
+				Expect(resize(60, 70)).To(Succeed())
+				Expect(fmt.Fprint(out, "stty size\n")).To(Equal(10))
+				Eventually(inBuf.String).Should(ContainSubstring("60 70\r\n"))
+				Expect(fmt.Fprint(out, "exit\n")).To(Equal(5))
+				Eventually(func() error { return resize(80, 90) }).Should(MatchError(ContainSubstring("process not found")))
+				return nil
+			})
+			Expect(contr.Shell(tty, "sh")).To(Succeed())
+			close(exit)
+		})
+
+		It("should not interfere with container removal when running", func() {
+			wait := testutil.Wait(2)
+			defer wait()
+
+			exit := make(chan struct{})
+			contr.Exit = exit
+
+			go func() {
+				defer wait()
+				defer GinkgoRecover()
+				Expect(contr.Start("some-prefix", ioutil.Discard, nil)).To(Equal(int64(128)))
+				Expect(contr.Close()).To(Succeed())
+			}()
+			Eventually(try(containerRunning, contr.ID())).Should(BeTrue())
+			tty := testTTY(func(in io.Reader, out io.Writer, resize func(h, w uint16) error) error {
+				return nil
+			})
+			Expect(contr.Shell(tty, "sh")).To(Succeed())
+			close(exit)
+			Eventually(try(containerRunning, contr.ID())).Should(BeFalse())
+		})
+
+		It("should stop when requested", func() {
+			wait := testutil.Wait(2)
+			defer wait()
+
+			exit := make(chan struct{})
+			contr.Exit = exit
+
+			go func() {
+				defer wait()
+				defer GinkgoRecover()
+				Expect(contr.Start("some-prefix", ioutil.Discard, nil)).To(Equal(int64(128)))
+			}()
+			Eventually(try(containerRunning, contr.ID())).Should(BeTrue())
+			tty := testTTY(func(in io.Reader, out io.Writer, resize func(h, w uint16) error) error {
+				close(exit)
+				Eventually(func() error { return resize(40, 80) }).Should(MatchError(ContainSubstring("canceled")))
+				return nil
+			})
+			Expect(contr.Shell(tty, "sh")).To(Succeed())
+		})
+
+		It("should return an error when the shell cannot be executed", func() {
+			Expect(contr.Close()).To(Succeed())
+			tty := testTTY(func(in io.Reader, out io.Writer, resize func(w, h uint16) error) error {
+				return nil
+			})
+			err := contr.Shell(tty, "sh")
+			Expect(err).To(MatchError(ContainSubstring("No such container")))
+		})
+
+		It("should return an error when the TTY fails", func() {
+			wait := testutil.Wait(2)
+			defer wait()
+
+			exit := make(chan struct{})
+			contr.Exit = exit
+
+			go func() {
+				defer wait()
+				defer GinkgoRecover()
+				Expect(contr.Start("some-prefix", ioutil.Discard, nil)).To(Equal(int64(128)))
+			}()
+			Eventually(try(containerRunning, contr.ID())).Should(BeTrue())
+			tty := testTTY(func(in io.Reader, out io.Writer, resize func(h, w uint16) error) error {
+				return errors.New("some error")
+			})
+			err := contr.Shell(tty, "sh")
+			Expect(err).To(MatchError("some error"))
+
+			close(exit)
 		})
 	})
 

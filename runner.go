@@ -18,9 +18,10 @@ import (
 	"github.com/docker/go-connections/nat"
 
 	"github.com/sclevine/forge/engine"
+	"github.com/sclevine/forge/term"
 )
 
-const runnerScript = `
+const runScript = `
 	set -e
 	{{if .RSync -}}
 	rsync -a /tmp/local/ /home/vcap/app/
@@ -46,6 +47,7 @@ var bytesPattern = regexp.MustCompile(`(?i)^(-?\d+)([KMGT])B?$`)
 
 type Runner struct {
 	Logs   io.Writer
+	TTY    engine.TTY
 	Loader Loader
 	engine forgeEngine
 	image  forgeImage
@@ -57,6 +59,7 @@ type RunConfig struct {
 	Stack         string
 	AppDir        string
 	RSync         bool
+	Shell         bool
 	Restart       <-chan time.Time
 	Color         Colorizer
 	AppConfig     *AppConfig
@@ -65,7 +68,11 @@ type RunConfig struct {
 
 func NewRunner(client *docker.Client, exit <-chan struct{}) *Runner {
 	return &Runner{
-		Logs:   os.Stdout,
+		Logs: os.Stdout,
+		TTY: &term.TTY{
+			In:  os.Stdin,
+			Out: os.Stdout,
+		},
 		Loader: noopLoader{},
 		engine: &dockerEngine{
 			Docker: client,
@@ -112,7 +119,14 @@ func (r *Runner) Run(config *RunConfig) (status int64, err error) {
 	if err := contr.StreamFileTo(config.Droplet, "/tmp/droplet"); err != nil {
 		return 0, err
 	}
-	return contr.Start(config.Color("[%s] ", config.AppConfig.Name), r.Logs, config.Restart)
+	color := config.Color("[%s] ", config.AppConfig.Name)
+	if !config.Shell {
+		return contr.Start(color, r.Logs, config.Restart)
+	}
+	if err := contr.Background(); err != nil {
+		return 0, err
+	}
+	return 0, contr.Shell(r.TTY, "/tmp/lifecycle/shell")
 }
 
 type ExportConfig struct {
@@ -222,7 +236,7 @@ func (r *Runner) buildContainerConfig(config *AppConfig, stack string, rsync, ne
 
 	options := struct{ RSync bool }{rsync}
 	scriptBuf := &bytes.Buffer{}
-	tmpl := template.Must(template.New("").Parse(runnerScript))
+	tmpl := template.Must(template.New("").Parse(runScript))
 	if err := tmpl.Execute(scriptBuf, options); err != nil {
 		return nil, err
 	}

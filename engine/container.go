@@ -26,6 +26,10 @@ type Container struct {
 	config        *container.Config
 }
 
+type TTY interface {
+	Run(remoteIn io.Reader, remoteOut io.Writer, resize func(w, h uint16) error) error
+}
+
 func NewContainer(docker *docker.Client, name string, config *container.Config, hostConfig *container.HostConfig) (*Container, error) {
 	uuid, err := gouuid.NewV4()
 	if err != nil {
@@ -71,7 +75,6 @@ func (c *Container) Start(logPrefix string, logs io.Writer, restart <-chan time.
 	defer func() {
 		if isErrCanceled(err) {
 			status, err = 128, nil
-			return
 		}
 	}()
 	done := make(chan struct{})
@@ -170,6 +173,49 @@ func copyStreams(dst io.Writer, prefix string) chan<- io.Reader {
 		}
 	}()
 	return srcs
+}
+
+func (c *Container) Shell(tty TTY, shell ...string) (err error) {
+	defer func() {
+		if isErrCanceled(err) {
+			err = nil
+		}
+	}()
+	done := make(chan struct{})
+	defer close(done)
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		select {
+		case <-done:
+			cancel()
+		case <-c.Exit:
+			cancel()
+		}
+	}()
+
+	config := types.ExecConfig{
+		User:         c.config.User,
+		Tty:          true,
+		AttachStdin:  true,
+		AttachStderr: true,
+		AttachStdout: true,
+		Env:          c.config.Env,
+		Cmd:          shell,
+	}
+	idResp, err := c.Docker.ContainerExecCreate(ctx, c.id, config)
+	if err != nil {
+		return err
+	}
+
+	attachResp, err := c.Docker.ContainerExecAttach(ctx, idResp.ID, config)
+	if err != nil {
+		return err
+	}
+	defer attachResp.Close()
+
+	return tty.Run(attachResp.Reader, attachResp.Conn, func(h, w uint16) error {
+		return c.Docker.ContainerExecResize(ctx, idResp.ID, types.ResizeOptions{Height: uint(h), Width: uint(w)})
+	})
 }
 
 func (c *Container) HealthCheck() <-chan string {

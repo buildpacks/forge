@@ -25,7 +25,6 @@ func setupClient() {
 	var err error
 	client, err = docker.NewEnvClient()
 	Expect(err).NotTo(HaveOccurred())
-	client.UpdateClientVersion("")
 }
 
 var _ = SynchronizedBeforeSuite(func() []byte {

@@ -132,6 +132,23 @@ func (mr *MockContainerMockRecorder) Mkdir(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Mkdir", reflect.TypeOf((*MockContainer)(nil).Mkdir), arg0)
 }
 
+// Shell mocks base method
+func (m *MockContainer) Shell(arg0 engine.TTY, arg1 ...string) error {
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "Shell", varargs...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Shell indicates an expected call of Shell
+func (mr *MockContainerMockRecorder) Shell(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Shell", reflect.TypeOf((*MockContainer)(nil).Shell), varargs...)
+}
+
 // Start mocks base method
 func (m *MockContainer) Start(arg0 string, arg1 io.Writer, arg2 <-chan time.Time) (int64, error) {
 	ret := m.ctrl.Call(m, "Start", arg0, arg1, arg2)

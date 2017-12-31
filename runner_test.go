@@ -126,6 +126,7 @@ var _ = Describe("Runner", func() {
 
 		// TODO: test when app dir is empty
 		// TODO: test with container networking
+		// TODO: test shell
 	})
 
 	Describe("#Export", func() {
