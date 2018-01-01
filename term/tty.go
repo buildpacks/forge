@@ -24,7 +24,7 @@ func (t *TTY) Run(remoteIn io.Reader, remoteOut io.Writer, resize func(h, w uint
 		}
 
 		var state *term.State
-		state, err := term.SetRawTerminal(outFd)
+		state, err := term.SetRawTerminal(inFd)
 		if err == nil {
 			defer term.RestoreTerminal(inFd, state)
 		}
