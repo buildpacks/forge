@@ -3,7 +3,6 @@ package term
 import (
 	"io"
 	"os"
-	"sync"
 
 	"github.com/docker/docker/pkg/term"
 )
@@ -13,7 +12,7 @@ type TTY struct {
 	Out io.Writer
 }
 
-func (t *TTY) Run(remoteIn io.Reader, remoteOut io.Writer, resize func(h, w uint16) error) error {
+func (t *TTY) Run(remoteIn io.Reader, remoteOut io.WriteCloser, resize func(h, w uint16) error) error {
 	inFd, inIsTerm := term.GetFdInfo(t.In)
 	outFd, outIsTerm := term.GetFdInfo(t.Out)
 
@@ -30,11 +29,10 @@ func (t *TTY) Run(remoteIn io.Reader, remoteOut io.Writer, resize func(h, w uint
 		}
 	}
 
-	wg := &sync.WaitGroup{}
-	wg.Add(2)
-
-	go copy(wg, t.Out, remoteIn)
-	go copy(wg, remoteOut, t.In)
+	go func() {
+		defer remoteOut.Close()
+		io.Copy(remoteOut, t.In)
+	}()
 
 	if outIsTerm {
 		r, done := resized()
@@ -42,7 +40,7 @@ func (t *TTY) Run(remoteIn io.Reader, remoteOut io.Writer, resize func(h, w uint
 		go t.resize(r, resize, outFd)
 	}
 
-	wg.Wait()
+	io.Copy(t.Out, remoteIn)
 	return nil
 }
 
@@ -68,10 +66,4 @@ func winsize(fd uintptr) *term.Winsize {
 		}
 	}
 	return size
-}
-
-// TODO: collect copy errors
-func copy(wg *sync.WaitGroup, dst io.Writer, src io.Reader) {
-	io.Copy(dst, src)
-	wg.Done()
 }

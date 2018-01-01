@@ -27,7 +27,7 @@ type Container struct {
 }
 
 type TTY interface {
-	Run(remoteIn io.Reader, remoteOut io.Writer, resize func(w, h uint16) error) error
+	Run(remoteIn io.Reader, remoteOut io.WriteCloser, resize func(w, h uint16) error) error
 }
 
 func NewContainer(docker *docker.Client, name string, config *container.Config, hostConfig *container.HostConfig) (*Container, error) {
@@ -211,7 +211,6 @@ func (c *Container) Shell(tty TTY, shell ...string) (err error) {
 	if err != nil {
 		return err
 	}
-	defer attachResp.Close()
 
 	return tty.Run(attachResp.Reader, attachResp.Conn, func(h, w uint16) error {
 		return c.Docker.ContainerExecResize(ctx, idResp.ID, types.ResizeOptions{Height: uint(h), Width: uint(w)})

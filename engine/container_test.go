@@ -24,9 +24,9 @@ import (
 	"github.com/sclevine/forge/testutil"
 )
 
-type testTTY func(io.Reader, io.Writer, func(h, w uint16) error) error
+type testTTY func(io.Reader, io.WriteCloser, func(h, w uint16) error) error
 
-func (t testTTY) Run(remoteIn io.Reader, remoteOut io.Writer, resize func(h, w uint16) error) error {
+func (t testTTY) Run(remoteIn io.Reader, remoteOut io.WriteCloser, resize func(h, w uint16) error) error {
 	return t(remoteIn, remoteOut, resize)
 }
 
@@ -260,7 +260,7 @@ var _ = Describe("Container", func() {
 			}()
 
 			Eventually(try(containerRunning, contr.ID())).Should(BeTrue())
-			tty := testTTY(func(in io.Reader, out io.Writer, resize func(h, w uint16) error) error {
+			tty := testTTY(func(in io.Reader, out io.WriteCloser, resize func(h, w uint16) error) error {
 				inBuf := &bytes.Buffer{}
 				go io.Copy(inBuf, in)
 				Expect(fmt.Fprint(out, "cat /testfile\n")).To(Equal(14))
@@ -273,6 +273,7 @@ var _ = Describe("Container", func() {
 				Eventually(inBuf.String).Should(ContainSubstring("60 70\r\n"))
 				Expect(fmt.Fprint(out, "exit\n")).To(Equal(5))
 				Eventually(func() error { return resize(80, 90) }).Should(MatchError(ContainSubstring("process not found")))
+				Expect(out.Close()).To(Succeed())
 				return nil
 			})
 			Expect(contr.Shell(tty, "sh")).To(Succeed())
@@ -293,7 +294,7 @@ var _ = Describe("Container", func() {
 				Expect(contr.Close()).To(Succeed())
 			}()
 			Eventually(try(containerRunning, contr.ID())).Should(BeTrue())
-			tty := testTTY(func(in io.Reader, out io.Writer, resize func(h, w uint16) error) error {
+			tty := testTTY(func(in io.Reader, out io.WriteCloser, resize func(h, w uint16) error) error {
 				return nil
 			})
 			Expect(contr.Shell(tty, "sh")).To(Succeed())
@@ -314,7 +315,7 @@ var _ = Describe("Container", func() {
 				Expect(contr.Start("some-prefix", ioutil.Discard, nil)).To(Equal(int64(128)))
 			}()
 			Eventually(try(containerRunning, contr.ID())).Should(BeTrue())
-			tty := testTTY(func(in io.Reader, out io.Writer, resize func(h, w uint16) error) error {
+			tty := testTTY(func(in io.Reader, out io.WriteCloser, resize func(h, w uint16) error) error {
 				close(exit)
 				Eventually(func() error { return resize(40, 80) }).Should(MatchError(ContainSubstring("canceled")))
 				return nil
@@ -324,7 +325,7 @@ var _ = Describe("Container", func() {
 
 		It("should return an error when the shell cannot be executed", func() {
 			Expect(contr.Close()).To(Succeed())
-			tty := testTTY(func(in io.Reader, out io.Writer, resize func(w, h uint16) error) error {
+			tty := testTTY(func(in io.Reader, out io.WriteCloser, resize func(w, h uint16) error) error {
 				return nil
 			})
 			err := contr.Shell(tty, "sh")
@@ -344,7 +345,7 @@ var _ = Describe("Container", func() {
 				Expect(contr.Start("some-prefix", ioutil.Discard, nil)).To(Equal(int64(128)))
 			}()
 			Eventually(try(containerRunning, contr.ID())).Should(BeTrue())
-			tty := testTTY(func(in io.Reader, out io.Writer, resize func(h, w uint16) error) error {
+			tty := testTTY(func(in io.Reader, out io.WriteCloser, resize func(h, w uint16) error) error {
 				return errors.New("some error")
 			})
 			err := contr.Shell(tty, "sh")
