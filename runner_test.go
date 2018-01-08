@@ -180,18 +180,21 @@ var _ = Describe("Runner", func() {
 				}).Return(mockContainer, nil),
 			)
 
+			mkdir := mockContainer.EXPECT().Mkdir("/tmp/lifecycle")
 			lifecycleCopy := mockContainer.EXPECT().StreamTarTo(config.Lifecycle, "/tmp/lifecycle")
 			dropletCopy := mockContainer.EXPECT().StreamFileTo(config.Droplet, "/tmp/droplet")
 
 			gomock.InOrder(
-				mockContainer.EXPECT().Commit("some-ref").Return("some-image-id", nil).
-					After(lifecycleCopy).After(dropletCopy),
-				mockContainer.EXPECT().Close(),
+				mockContainer.EXPECT().
+					Commit("some-ref").Return("some-image-id", nil).
+					After(lifecycleCopy.After(mkdir)).
+					After(dropletCopy),
+				mockContainer.EXPECT().
+					Close(),
 			)
 
 			Expect(runner.Export(config)).To(Equal("some-image-id"))
 			Expect(mockLoader.Progress).To(Receive(Equal(mockProgress{Value: "some-progress"})))
-
 		})
 
 		// TODO: test with custom start command

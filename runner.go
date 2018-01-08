@@ -153,6 +153,9 @@ func (r *Runner) Export(config *ExportConfig) (imageID string, err error) {
 	}
 	defer contr.Close()
 
+	if err := contr.Mkdir("/tmp/lifecycle"); err != nil {
+		return "", err
+	}
 	if err := contr.StreamTarTo(config.Lifecycle, "/tmp/lifecycle"); err != nil {
 		return "", err
 	}
