@@ -3,23 +3,38 @@ package engine
 import (
 	"archive/tar"
 	"bytes"
+	"errors"
 	"io"
 )
 
 type Stream struct {
 	io.ReadCloser
-	Size int64
+	Size   int64
+	closed bool
 }
 
 func NewStream(data io.ReadCloser, size int64) Stream {
-	return Stream{data, size}
+	return Stream{data, size, false}
 }
 
-func (s Stream) Out(dst io.Writer) error {
-	defer s.Close()
-	if _, err := io.CopyN(dst, s, s.Size); err != nil {
+func (s *Stream) Out(dst io.Writer) error {
+	if s.closed {
+		return errors.New("closed")
+	}
+	defer s.ReadCloser.Close()
+	n, err := io.CopyN(dst, s, s.Size)
+	s.Size -= n
+	return err
+}
+
+func (s *Stream) Close() error {
+	if s.closed {
+		return nil
+	}
+	if err := s.ReadCloser.Close(); err != nil {
 		return err
 	}
+	s.closed = true
 	return nil
 }
 
