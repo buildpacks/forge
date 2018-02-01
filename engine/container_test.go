@@ -272,7 +272,7 @@ var _ = Describe("Container", func() {
 				Expect(fmt.Fprint(out, "stty size\n")).To(Equal(10))
 				Eventually(inBuf.String).Should(ContainSubstring("60 70\r\n"))
 				Expect(fmt.Fprint(out, "exit\n")).To(Equal(5))
-				Eventually(func() error { return resize(80, 90) }).Should(MatchError(ContainSubstring("process not found")))
+				Eventually(func() error { return resize(80, 90) }).Should(HaveOccurred())
 				Expect(out.Close()).To(Succeed())
 				return nil
 			})

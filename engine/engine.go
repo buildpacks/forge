@@ -9,12 +9,19 @@ import (
 
 type Stream struct {
 	io.ReadCloser
+	*StreamState
+}
+
+type StreamState struct {
 	Size   int64
 	closed bool
 }
 
 func NewStream(data io.ReadCloser, size int64) Stream {
-	return Stream{data, size, false}
+	return Stream{
+		data,
+		&StreamState{size, false},
+	}
 }
 
 func (s *Stream) Out(dst io.Writer) error {
