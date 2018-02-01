@@ -24,7 +24,7 @@ func NewStream(data io.ReadCloser, size int64) Stream {
 	}
 }
 
-func (s *Stream) Out(dst io.Writer) error {
+func (s Stream) Out(dst io.Writer) error {
 	if s.closed {
 		return errors.New("closed")
 	}
@@ -34,7 +34,7 @@ func (s *Stream) Out(dst io.Writer) error {
 	return err
 }
 
-func (s *Stream) Close() error {
+func (s Stream) Close() error {
 	if s.closed {
 		return nil
 	}
