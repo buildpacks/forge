@@ -28,7 +28,7 @@ func (s Stream) Out(dst io.Writer) error {
 	if s.closed {
 		return errors.New("closed")
 	}
-	defer s.ReadCloser.Close()
+	defer s.Close()
 	n, err := io.CopyN(dst, s, s.Size)
 	s.Size -= n
 	return err
