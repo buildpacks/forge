@@ -26,21 +26,7 @@ const runScript = `
 	{{if .RSync -}}
 	rsync -a /tmp/local/ /home/vcap/app/
 	{{end -}}
-	if [[ ! -z $(ls -A /home/vcap/app) ]]; then
-		exclude='--exclude=./app'
-	fi
-	tar $exclude -C /home/vcap -xzf /tmp/droplet
-	chown -R vcap:vcap /home/vcap
-	{{if .RSync -}}
-	if [[ -z $(ls -A /tmp/local) ]]; then
-		rsync -a /home/vcap/app/ /tmp/local/
-	fi
-	{{end -}}
-	command=$1
-	if [[ -z $command ]]; then
-		command=$(jq -r .start_command /home/vcap/staging_info.yml)
-	fi
-	exec /tmp/lifecycle/launcher /home/vcap/app "$command" ''
+	exec /launcher "$1"
 `
 
 var bytesPattern = regexp.MustCompile(`(?i)^(-?\d+)([KMGT])B?$`)
@@ -55,7 +41,6 @@ type Runner struct {
 
 type RunConfig struct {
 	Droplet       engine.Stream
-	Lifecycle     engine.Stream
 	Stack         string
 	AppDir        string
 	RSync         bool
@@ -90,7 +75,6 @@ func (r *Runner) Run(config *RunConfig) (status int64, err error) {
 		return 0, err
 	}
 
-	r.setDefaults(config.AppConfig)
 	containerConfig, err := r.buildContainerConfig(config.AppConfig, config.Stack, config.RSync, config.NetworkConfig.ContainerID != "")
 	if err != nil {
 		return 0, err
@@ -99,9 +83,12 @@ func (r *Runner) Run(config *RunConfig) (status int64, err error) {
 	if config.RSync {
 		remoteDir = "/tmp/local"
 	}
-	memory, err := toMegabytes(config.AppConfig.Memory)
-	if err != nil {
-		return 0, err
+	var memory int64
+	if config.AppConfig.Memory != "" {
+		memory, err = toMegabytes(config.AppConfig.Memory)
+		if err != nil {
+			return 0, err
+		}
 	}
 	hostConfig := r.buildHostConfig(config.NetworkConfig, memory, config.AppDir, remoteDir)
 	contr, err := r.engine.NewContainer(config.AppConfig.Name, containerConfig, hostConfig)
@@ -110,13 +97,7 @@ func (r *Runner) Run(config *RunConfig) (status int64, err error) {
 	}
 	defer contr.Close()
 
-	if err := contr.Mkdir("/tmp/lifecycle"); err != nil {
-		return 0, err
-	}
-	if err := contr.StreamTarTo(config.Lifecycle, "/tmp/lifecycle"); err != nil {
-		return 0, err
-	}
-	if err := contr.StreamFileTo(config.Droplet, "/tmp/droplet"); err != nil {
+	if err := contr.StreamTarTo(config.Droplet, "/home/vcap"); err != nil {
 		return 0, err
 	}
 	color := config.Color("[%s] ", config.AppConfig.Name)
@@ -126,23 +107,22 @@ func (r *Runner) Run(config *RunConfig) (status int64, err error) {
 	if err := contr.Background(); err != nil {
 		return 0, err
 	}
-	return 0, contr.Shell(r.TTY, "/tmp/lifecycle/shell")
+	return 0, contr.Shell(r.TTY, "/lifecycle/shell")
 }
 
 type ExportConfig struct {
 	Droplet   engine.Stream
-	Lifecycle engine.Stream
 	Stack     string
 	Ref       string
 	AppConfig *AppConfig
 }
 
+// TODO: use build instead of commit + ignore all quotas
 func (r *Runner) Export(config *ExportConfig) (imageID string, err error) {
 	if err := r.pull(config.Stack); err != nil {
 		return "", err
 	}
 
-	r.setDefaults(config.AppConfig)
 	containerConfig, err := r.buildContainerConfig(config.AppConfig, config.Stack, false, false)
 	if err != nil {
 		return "", err
@@ -153,16 +133,9 @@ func (r *Runner) Export(config *ExportConfig) (imageID string, err error) {
 	}
 	defer contr.Close()
 
-	if err := contr.Mkdir("/tmp/lifecycle"); err != nil {
+	if err := contr.StreamTarTo(config.Droplet, "/home/vcap"); err != nil {
 		return "", err
 	}
-	if err := contr.StreamTarTo(config.Lifecycle, "/tmp/lifecycle"); err != nil {
-		return "", err
-	}
-	if err := contr.StreamFileTo(config.Droplet, "/tmp/droplet"); err != nil {
-		return "", err
-	}
-
 	return contr.Commit(config.Ref)
 }
 
@@ -170,71 +143,27 @@ func (r *Runner) pull(stack string) error {
 	return r.Loader.Loading("Image", r.image.Pull(stack))
 }
 
-func (r *Runner) setDefaults(config *AppConfig) {
-	if config.Memory == "" {
-		config.Memory = "1024m"
-	}
-	if config.DiskQuota == "" {
-		config.DiskQuota = "1024m"
-	}
-}
-
 func (r *Runner) buildContainerConfig(config *AppConfig, stack string, rsync, networked bool) (*container.Config, error) {
-	name := config.Name
-	memory, err := toMegabytes(config.Memory)
-	if err != nil {
-		return nil, err
-	}
-	disk, err := toMegabytes(config.DiskQuota)
-	if err != nil {
-		return nil, err
-	}
-	vcapApp, err := json.Marshal(&vcapApplication{
-		ApplicationID:      "01d31c12-d066-495e-aca2-8d3403165360",
-		ApplicationName:    name,
-		ApplicationURIs:    []string{"localhost"},
-		ApplicationVersion: "2b860df9-a0a1-474c-b02f-5985f53ea0bb",
-		Host:               "0.0.0.0",
-		InstanceID:         "999db41a-508b-46eb-74d8-6f9c06c006da",
-		InstanceIndex:      uintPtr(0),
-		Limits:             map[string]int64{"fds": 16384, "mem": memory, "disk": disk},
-		Name:               name,
-		Port:               uintPtr(8080),
-		SpaceID:            "18300c1c-1aa4-4ae7-81e6-ae59c6cdbaf1",
-		SpaceName:          config.Name + "-space",
-		URIs:               []string{"localhost"},
-		Version:            "18300c1c-1aa4-4ae7-81e6-ae59c6cdbaf1",
-	})
-	if err != nil {
-		return nil, err
+	env := map[string]string{}
+
+	if config.Name != "" {
+		env["PACK_APP_NAME"] = config.Name
 	}
 
-	services := config.Services
-	if services == nil {
-		services = Services{}
-	}
-	vcapServices, err := json.Marshal(services)
-	if err != nil {
-		return nil, err
+	if config.DiskQuota != "" {
+		disk, err := toMegabytes(config.DiskQuota)
+		if err != nil {
+			return nil, err
+		}
+		env["PACK_APP_DISK"] = fmt.Sprintf("%d", disk)
 	}
 
-	env := map[string]string{
-		"CF_INSTANCE_ADDR":  "0.0.0.0:8080",
-		"CF_INSTANCE_GUID":  "999db41a-508b-46eb-74d8-6f9c06c006da",
-		"CF_INSTANCE_INDEX": "0",
-		"CF_INSTANCE_IP":    "0.0.0.0",
-		"CF_INSTANCE_PORT":  "8080",
-		"CF_INSTANCE_PORTS": `[{"external":8080,"internal":8080}]`,
-		"INSTANCE_GUID":     "999db41a-508b-46eb-74d8-6f9c06c006da",
-		"INSTANCE_INDEX":    "0",
-		"LANG":              "en_US.UTF-8",
-		"MEMORY_LIMIT":      fmt.Sprintf("%dm", memory),
-		"PATH":              "/usr/local/bin:/usr/bin:/bin",
-		"PORT":              "8080",
-		"TMPDIR":            "/home/vcap/tmp",
-		"USER":              "vcap",
-		"VCAP_APPLICATION":  string(vcapApp),
-		"VCAP_SERVICES":     string(vcapServices),
+	if config.Services != nil {
+		vcapServices, err := json.Marshal(config.Services)
+		if err != nil {
+			return nil, err
+		}
+		env["VCAP_SERVICES"] = string(vcapServices)
 	}
 
 	options := struct{ RSync bool }{rsync}
@@ -245,17 +174,11 @@ func (r *Runner) buildContainerConfig(config *AppConfig, stack string, rsync, ne
 	}
 
 	hostname := config.Name
-	ports := nat.PortSet{"8080/tcp": {}}
-
 	if networked {
 		hostname = ""
-		ports = nil
 	}
-
 	return &container.Config{
 		Hostname:     hostname,
-		User:         "vcap",
-		ExposedPorts: ports,
 		Env:          mapToEnv(mergeMaps(env, config.RunningEnv, config.Env)),
 		Image:        stack,
 		WorkingDir:   "/home/vcap/app",
@@ -332,8 +255,4 @@ func mapToEnv(env map[string]string) []string {
 		out = append(out, fmt.Sprintf("%s=%s", k, v))
 	}
 	return out
-}
-
-func uintPtr(i uint) *uint {
-	return &i
 }

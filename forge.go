@@ -21,10 +21,8 @@ type Container interface {
 	Commit(ref string) (imageID string, err error)
 	ExtractTo(tar io.Reader, path string) error
 	StreamTarTo(stream engine.Stream, path string) error
-	StreamTarFrom(path string) (engine.Stream, error)
 	StreamFileTo(stream engine.Stream, path string) error
 	StreamFileFrom(path string) (engine.Stream, error)
-	Mkdir(path string) error
 }
 
 type Loader interface {
@@ -52,35 +50,13 @@ type NetworkConfig struct {
 	HostPort    string
 }
 
-//go:generate mockgen -package mocks -destination mocks/versioner.go github.com/sclevine/forge/mocks Versioner
-type versioner interface {
-	Build(tmplURL, versionURL string) (string, error)
-}
-
 //go:generate mockgen -package mocks -destination mocks/image.go github.com/sclevine/forge/mocks Image
 type forgeImage interface {
 	Pull(ref string) <-chan engine.Progress
-	Build(tag string, dockerfile engine.Stream) <-chan engine.Progress
+	Build(tag string, tarball io.Reader) <-chan engine.Progress
 }
 
 //go:generate mockgen -package mocks -destination mocks/engine.go github.com/sclevine/forge/mocks Engine
 type forgeEngine interface {
 	NewContainer(name string, config *container.Config, hostConfig *container.HostConfig) (Container, error)
-}
-
-type vcapApplication struct {
-	ApplicationID      string           `json:"application_id"`
-	ApplicationName    string           `json:"application_name"`
-	ApplicationURIs    []string         `json:"application_uris"`
-	ApplicationVersion string           `json:"application_version"`
-	Host               string           `json:"host,omitempty"`
-	InstanceID         string           `json:"instance_id,omitempty"`
-	InstanceIndex      *uint            `json:"instance_index,omitempty"`
-	Limits             map[string]int64 `json:"limits"`
-	Name               string           `json:"name"`
-	Port               *uint            `json:"port,omitempty"`
-	SpaceID            string           `json:"space_id"`
-	SpaceName          string           `json:"space_name"`
-	URIs               []string         `json:"uris"`
-	Version            string           `json:"version"`
 }
