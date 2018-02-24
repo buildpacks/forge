@@ -164,6 +164,7 @@ var _ = Describe("Container", func() {
 				defer wait()
 
 				exit := make(chan struct{})
+				defer close(exit)
 				contr.Exit = exit
 
 				logs := gbytes.NewBuffer()
@@ -175,7 +176,6 @@ var _ = Describe("Container", func() {
 				Eventually(try(containerRunning, contr.ID())).Should(BeTrue())
 				Eventually(logs.Contents).Should(ContainSubstring("Z some-logs-stdout"))
 				Eventually(logs.Contents).Should(ContainSubstring("Z some-logs-stderr"))
-				close(exit)
 			})
 		})
 
@@ -194,7 +194,8 @@ var _ = Describe("Container", func() {
 				defer wait()
 
 				exit := make(chan struct{})
-				restart := make(chan time.Time)
+				defer close(exit)
+				restart := make(chan time.Time, 2)
 				contr.Exit = exit
 
 				logs := gbytes.NewBuffer()
@@ -211,7 +212,6 @@ var _ = Describe("Container", func() {
 				Eventually(logs, "5s").Should(gbytes.Say("Z some-logs-stdout"))
 
 				Consistently(logs, "2s").ShouldNot(gbytes.Say("Z some-logs-stdout"))
-				close(exit)
 			})
 		})
 
@@ -251,6 +251,7 @@ var _ = Describe("Container", func() {
 			defer wait()
 
 			exit := make(chan struct{})
+			defer close(exit)
 			contr.Exit = exit
 
 			go func() {
@@ -277,7 +278,6 @@ var _ = Describe("Container", func() {
 				return nil
 			})
 			Expect(contr.Shell(tty, "sh")).To(Succeed())
-			close(exit)
 		})
 
 		It("should not interfere with container removal when running", func() {
@@ -337,6 +337,7 @@ var _ = Describe("Container", func() {
 			defer wait()
 
 			exit := make(chan struct{})
+			defer close(exit)
 			contr.Exit = exit
 
 			go func() {
@@ -350,8 +351,6 @@ var _ = Describe("Container", func() {
 			})
 			err := contr.Shell(tty, "sh")
 			Expect(err).To(MatchError("some error"))
-
-			close(exit)
 		})
 	})
 

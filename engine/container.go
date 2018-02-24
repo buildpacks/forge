@@ -136,7 +136,7 @@ func (c *Container) restart(ctx context.Context, contLogs io.ReadCloser, logQueu
 				ShowStdout: true,
 				ShowStderr: true,
 				Follow:     true,
-				Since:      startedAt.Add(-10 * time.Millisecond).Format(time.RFC3339Nano),
+				Since:      startedAt.Add(-100 * time.Millisecond).Format(time.RFC3339Nano),
 			})
 			if err != nil {
 				continue
