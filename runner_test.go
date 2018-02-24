@@ -50,13 +50,12 @@ var _ = Describe("Runner", func() {
 			progress <- mockProgress{Value: "some-progress"}
 			close(progress)
 			config := &RunConfig{
-				Droplet:   engine.NewStream(mockReadCloser{Value: "some-droplet"}, 100),
-				Lifecycle: engine.NewStream(mockReadCloser{Value: "some-lifecycle"}, 200),
-				Stack:     "some-stack",
-				AppDir:    "some-app-dir",
-				RSync:     true,
-				Restart:   make(<-chan time.Time),
-				Color:     percentColor,
+				Droplet: engine.NewStream(mockReadCloser{Value: "some-droplet"}, 100),
+				Stack:   "some-stack",
+				AppDir:  "some-app-dir",
+				RSync:   true,
+				Restart: make(<-chan time.Time),
+				Color:   percentColor,
 				AppConfig: &AppConfig{
 					Name:      "some-name",
 					Command:   "some-command",
@@ -67,11 +66,10 @@ var _ = Describe("Runner", func() {
 					},
 					RunningEnv: map[string]string{
 						"TEST_RUNNING_ENV_KEY": "test-running-env-value",
-						"LANG":                 "some-overridden-lang",
+						"TEST_ENV_KEY":         "some-overridden-value",
 					},
 					Env: map[string]string{
 						"TEST_ENV_KEY": "test-env-value",
-						"LANG":         "some-lang",
 					},
 					Services: Services{
 						"some-type": {{
@@ -88,12 +86,15 @@ var _ = Describe("Runner", func() {
 				mockImage.EXPECT().Pull("some-stack").Return(progress),
 				mockEngine.EXPECT().NewContainer("some-name", gomock.Any(), gomock.Any()).Do(func(_ string, config *container.Config, hostConfig *container.HostConfig) {
 					Expect(config.Hostname).To(Equal("some-name"))
-					Expect(config.User).To(Equal("vcap"))
-					Expect(config.ExposedPorts).To(HaveLen(1))
-					_, hasPort := config.ExposedPorts["8080/tcp"]
-					Expect(hasPort).To(BeTrue())
 					sort.Strings(config.Env)
-					Expect(config.Env).To(Equal(fixtures.ProvidedRunningEnv("LANG=some-lang")))
+					Expect(config.Env).To(Equal([]string{
+						"PACK_APP_DISK=1024",
+						"PACK_APP_MEM=512",
+						"PACK_APP_NAME=some-name",
+						"TEST_ENV_KEY=test-env-value",
+						"TEST_RUNNING_ENV_KEY=test-running-env-value",
+						"VCAP_SERVICES=" + `{"some-type":[{"name":"some-name","label":"","tags":null,"plan":"","credentials":null,"syslog_drain_url":null,"provider":null,"volume_mounts":null}]}`,
+					}))
 					Expect(config.Image).To(Equal("some-stack"))
 					Expect(config.WorkingDir).To(Equal("/home/vcap/app"))
 					Expect(config.Entrypoint).To(Equal(strslice.StrSlice{
@@ -107,17 +108,11 @@ var _ = Describe("Runner", func() {
 				}).Return(mockContainer, nil),
 			)
 
-			mkdir := mockContainer.EXPECT().Mkdir("/tmp/lifecycle")
-			lifecycleCopy := mockContainer.EXPECT().StreamTarTo(config.Lifecycle, "/tmp/lifecycle")
-			dropletCopy := mockContainer.EXPECT().StreamFileTo(config.Droplet, "/tmp/droplet")
+			dropletCopy := mockContainer.EXPECT().StreamTarTo(config.Droplet, "/home/vcap")
 
 			gomock.InOrder(
-				mockContainer.EXPECT().
-					Start("[some-name] % ", runner.Logs, config.Restart).Return(int64(100), nil).
-					After(lifecycleCopy.After(mkdir)).
-					After(dropletCopy),
-				mockContainer.EXPECT().
-					Close(),
+				mockContainer.EXPECT().Start("[some-name] % ", runner.Logs, config.Restart).Return(int64(100), nil).After(dropletCopy),
+				mockContainer.EXPECT().Close(),
 			)
 
 			Expect(runner.Run(config)).To(Equal(int64(100)))
@@ -135,10 +130,9 @@ var _ = Describe("Runner", func() {
 			progress <- mockProgress{Value: "some-progress"}
 			close(progress)
 			config := &ExportConfig{
-				Droplet:   engine.NewStream(mockReadCloser{Value: "some-droplet"}, 100),
-				Lifecycle: engine.NewStream(mockReadCloser{Value: "some-lifecycle"}, 200),
-				Stack:     "some-stack",
-				Ref:       "some-ref",
+				Droplet: engine.NewStream(mockReadCloser{Value: "some-droplet"}, 100),
+				Stack:   "some-stack",
+				Ref:     "some-ref",
 				AppConfig: &AppConfig{
 					Name:      "some-name",
 					Command:   "some-command",
@@ -149,11 +143,10 @@ var _ = Describe("Runner", func() {
 					},
 					RunningEnv: map[string]string{
 						"TEST_RUNNING_ENV_KEY": "test-running-env-value",
-						"LANG":                 "some-overridden-lang",
+						"TEST_ENV_KEY":         "some-overridden-value",
 					},
 					Env: map[string]string{
 						"TEST_ENV_KEY": "test-env-value",
-						"LANG":         "some-lang",
 					},
 					Services: Services{
 						"some-type": {{
@@ -166,12 +159,13 @@ var _ = Describe("Runner", func() {
 				mockImage.EXPECT().Pull("some-stack").Return(progress),
 				mockEngine.EXPECT().NewContainer("some-name", gomock.Any(), gomock.Any()).Do(func(_ string, config *container.Config, hostConfig *container.HostConfig) {
 					Expect(config.Hostname).To(Equal("some-name"))
-					Expect(config.User).To(Equal("vcap"))
-					Expect(config.ExposedPorts).To(HaveLen(1))
-					_, hasPort := config.ExposedPorts["8080/tcp"]
-					Expect(hasPort).To(BeTrue())
 					sort.Strings(config.Env)
-					Expect(config.Env).To(Equal(fixtures.ProvidedRunningEnv("LANG=some-lang")))
+					Expect(config.Env).To(Equal([]string{
+						"PACK_APP_NAME=some-name",
+						"TEST_ENV_KEY=test-env-value",
+						"TEST_RUNNING_ENV_KEY=test-running-env-value",
+						"VCAP_SERVICES=" + `{"some-type":[{"name":"some-name","label":"","tags":null,"plan":"","credentials":null,"syslog_drain_url":null,"provider":null,"volume_mounts":null}]}`,
+					}))
 					Expect(config.Image).To(Equal("some-stack"))
 					Expect(config.Entrypoint).To(Equal(strslice.StrSlice{
 						"/bin/bash", "-c", fixtures.CommitScript(), "some-command",
@@ -180,17 +174,11 @@ var _ = Describe("Runner", func() {
 				}).Return(mockContainer, nil),
 			)
 
-			mkdir := mockContainer.EXPECT().Mkdir("/tmp/lifecycle")
-			lifecycleCopy := mockContainer.EXPECT().StreamTarTo(config.Lifecycle, "/tmp/lifecycle")
-			dropletCopy := mockContainer.EXPECT().StreamFileTo(config.Droplet, "/tmp/droplet")
+			dropletCopy := mockContainer.EXPECT().StreamTarTo(config.Droplet, "/home/vcap")
 
 			gomock.InOrder(
-				mockContainer.EXPECT().
-					Commit("some-ref").Return("some-image-id", nil).
-					After(lifecycleCopy.After(mkdir)).
-					After(dropletCopy),
-				mockContainer.EXPECT().
-					Close(),
+				mockContainer.EXPECT().Commit("some-ref").Return("some-image-id", nil).After(dropletCopy),
+				mockContainer.EXPECT().Close(),
 			)
 
 			Expect(runner.Export(config)).To(Equal("some-image-id"))

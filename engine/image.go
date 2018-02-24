@@ -27,6 +27,7 @@ type Progress interface {
 }
 
 func (i *Image) Build(tag string, dockerfile Stream) <-chan Progress {
+	defer dockerfile.Close()
 	ctx := context.Background()
 	progress := make(chan Progress, 1)
 

@@ -3,9 +3,8 @@ package forge
 import "os"
 
 type (
-	MockEngine    forgeEngine
-	MockImage     forgeImage
-	MockVersioner versioner
+	MockEngine forgeEngine
+	MockImage  forgeImage
 )
 
 func NewTestRunner(engine MockEngine, image MockImage) *Runner {
@@ -17,14 +16,12 @@ func NewTestRunner(engine MockEngine, image MockImage) *Runner {
 	}
 }
 
-func NewTestStager(versioner MockVersioner, engine MockEngine, image MockImage) *Stager {
+func NewTestStager(engine MockEngine, image MockImage) *Stager {
 	return &Stager{
-		ImageTag:  "forge",
-		Logs:      os.Stdout,
-		Loader:    noopLoader{},
-		versioner: versioner,
-		engine:    engine,
-		image:     image,
+		Logs:   os.Stdout,
+		Loader: noopLoader{},
+		engine: engine,
+		image:  image,
 	}
 }
 

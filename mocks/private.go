@@ -6,10 +6,6 @@ import (
 	"github.com/sclevine/forge/engine"
 )
 
-type Versioner interface {
-	Build(tmplURL, versionURL string) (string, error)
-}
-
 type Image interface {
 	Pull(ref string) <-chan engine.Progress
 	Build(tag string, dockerfile engine.Stream) <-chan engine.Progress

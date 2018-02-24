@@ -53,7 +53,6 @@ type NetworkConfig struct {
 //go:generate mockgen -package mocks -destination mocks/image.go github.com/sclevine/forge/mocks Image
 type forgeImage interface {
 	Pull(ref string) <-chan engine.Progress
-	Build(tag string, tarball io.Reader) <-chan engine.Progress
 }
 
 //go:generate mockgen -package mocks -destination mocks/engine.go github.com/sclevine/forge/mocks Engine

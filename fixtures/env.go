@@ -16,25 +16,11 @@ func RunningEnv(overrides ...string) []string {
 	return toSlice(env)
 }
 
-func ProvidedRunningEnv(overrides ...string) []string {
-	env := map[string]string{}
-	merge(env, runningEnv)
-	mergeEnv(env, overrides)
-	return toSlice(env)
-}
-
 func StagingEnv(overrides ...string) []string {
 	env := map[string]string{}
 	merge(env, stagingEnv)
 	merge(env, shellEnv)
 	env["PWD"] = "/home/vcap"
-	mergeEnv(env, overrides)
-	return toSlice(env)
-}
-
-func ProvidedStagingEnv(overrides ...string) []string {
-	env := map[string]string{}
-	merge(env, stagingEnv)
 	mergeEnv(env, overrides)
 	return toSlice(env)
 }

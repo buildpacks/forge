@@ -117,13 +117,16 @@ type ExportConfig struct {
 	AppConfig *AppConfig
 }
 
-// TODO: use build instead of commit + ignore all quotas
+// TODO: use build instead of commit
 func (r *Runner) Export(config *ExportConfig) (imageID string, err error) {
 	if err := r.pull(config.Stack); err != nil {
 		return "", err
 	}
 
-	containerConfig, err := r.buildContainerConfig(config.AppConfig, config.Stack, false, false)
+	appConfig := config.AppConfig
+	appConfig.DiskQuota = ""
+	appConfig.Memory = ""
+	containerConfig, err := r.buildContainerConfig(appConfig, config.Stack, false, false)
 	if err != nil {
 		return "", err
 	}
@@ -157,6 +160,13 @@ func (r *Runner) buildContainerConfig(config *AppConfig, stack string, rsync, ne
 		}
 		env["PACK_APP_DISK"] = fmt.Sprintf("%d", disk)
 	}
+	if config.Memory != "" {
+		mem, err := toMegabytes(config.Memory)
+		if err != nil {
+			return nil, err
+		}
+		env["PACK_APP_MEM"] = fmt.Sprintf("%d", mem)
+	}
 
 	if config.Services != nil {
 		vcapServices, err := json.Marshal(config.Services)
@@ -178,10 +188,10 @@ func (r *Runner) buildContainerConfig(config *AppConfig, stack string, rsync, ne
 		hostname = ""
 	}
 	return &container.Config{
-		Hostname:     hostname,
-		Env:          mapToEnv(mergeMaps(env, config.RunningEnv, config.Env)),
-		Image:        stack,
-		WorkingDir:   "/home/vcap/app",
+		Hostname:   hostname,
+		Env:        mapToEnv(mergeMaps(env, config.RunningEnv, config.Env)),
+		Image:      stack,
+		WorkingDir: "/home/vcap/app",
 		Entrypoint: strslice.StrSlice{
 			"/bin/bash", "-c", scriptBuf.String(), config.Command,
 		},

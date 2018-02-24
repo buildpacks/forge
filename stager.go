@@ -1,32 +1,26 @@
 package forge
 
 import (
-	"bytes"
-	"crypto/md5"
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
-	"sort"
 	"strconv"
 	"strings"
-	"text/template"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/strslice"
 	docker "github.com/docker/docker/client"
 
 	"github.com/sclevine/forge/engine"
-	"github.com/sclevine/forge/internal"
 )
 
 type Stager struct {
-	Logs             io.Writer
-	Loader           Loader
-	engine           forgeEngine
-	image            forgeImage
+	Logs   io.Writer
+	Loader Loader
+	engine forgeEngine
+	image  forgeImage
 }
 
 type StageConfig struct {
@@ -49,8 +43,8 @@ type ReadResetWriter interface {
 
 func NewStager(client *docker.Client, httpClient *http.Client, exit <-chan struct{}) *Stager {
 	return &Stager{
-		Logs:     os.Stdout,
-		Loader:   noopLoader{},
+		Logs:   os.Stdout,
+		Loader: noopLoader{},
 		engine: &dockerEngine{
 			Docker: client,
 			Exit:   exit,
@@ -167,9 +161,8 @@ func (s *Stager) buildContainerConfig(config *AppConfig, stack string, forceDete
 		Env:        mapToEnv(mergeMaps(env, config.StagingEnv, config.Env)),
 		Image:      stack,
 		WorkingDir: "/tmp/app",
-		Entrypoint: strslice.StrSlice{
-			"/builder",
-			"-skipDetect="+strconv.FormatBool(!detect),
+		Cmd: strslice.StrSlice{
+			"-skipDetect=" + strconv.FormatBool(!detect),
 			"-buildpackOrder", strings.Join(buildpacks, ","),
 		},
 	}, nil

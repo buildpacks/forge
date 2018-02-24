@@ -2,7 +2,6 @@ package forge_test
 
 import (
 	"bytes"
-	"io/ioutil"
 	"sort"
 
 	"github.com/docker/docker/api/types/container"
@@ -13,7 +12,6 @@ import (
 
 	. "github.com/sclevine/forge"
 	"github.com/sclevine/forge/engine"
-	"github.com/sclevine/forge/fixtures"
 	"github.com/sclevine/forge/mocks"
 )
 
@@ -24,7 +22,6 @@ var _ = Describe("Stager", func() {
 		mockLoader    *mocks.MockLoader
 		mockEngine    *mocks.MockEngine
 		mockImage     *mocks.MockImage
-		mockVersioner *mocks.MockVersioner
 		mockContainer *mocks.MockContainer
 		logs          *bytes.Buffer
 	)
@@ -34,16 +31,10 @@ var _ = Describe("Stager", func() {
 		mockLoader = mocks.NewMockLoader()
 		mockEngine = mocks.NewMockEngine(mockCtrl)
 		mockImage = mocks.NewMockImage(mockCtrl)
-		mockVersioner = mocks.NewMockVersioner(mockCtrl)
 		mockContainer = mocks.NewMockContainer(mockCtrl)
 		logs = bytes.NewBufferString("some logs\n")
 
-		stager = NewTestStager(mockVersioner, mockEngine, mockImage)
-		stager.ImageTag = "some-tag"
-		stager.SystemBuildpacks = Buildpacks{
-			{Name: "some-buildpack-name-1", URL: "some-buildpack-url-1", VersionURL: "some-buildpack-version-url-1"},
-			{Name: "some-buildpack-name-2", URL: "some-buildpack-url-2", VersionURL: "some-buildpack-version-url-2"},
-		}
+		stager = NewTestStager(mockEngine, mockImage)
 		stager.Logs = logs
 		stager.Loader = mockLoader
 	})
@@ -70,8 +61,8 @@ var _ = Describe("Stager", func() {
 				Cache:      localCache,
 				CacheEmpty: false,
 				BuildpackZips: map[string]engine.Stream{
-					"some-checksum-one": buildpackZipStream1,
-					"some-checksum-two": buildpackZipStream2,
+					"some-name-one": buildpackZipStream1,
+					"some-name-two": buildpackZipStream2,
 				},
 				Stack:  "some-stack",
 				AppDir: "some-app-dir",
@@ -103,44 +94,31 @@ var _ = Describe("Stager", func() {
 				},
 			}
 
-			// TODO: extract into shared behavior for more complete tests
-			Expect(stager.SystemBuildpacks).NotTo(HaveLen(0))
-			for _, buildpack := range stager.SystemBuildpacks {
-				mockVersioner.EXPECT().Build(buildpack.URL, buildpack.VersionURL).Return(buildpack.Name+"-versioned-url", nil)
-			}
-
 			gomock.InOrder(
-				mockImage.EXPECT().Build("some-tag", gomock.Any()).Do(func(_ string, dockerfile engine.Stream) {
-					dfBytes, err := ioutil.ReadAll(dockerfile)
-					Expect(err).NotTo(HaveOccurred())
-
-					Expect(dockerfile.Size).To(Equal(int64(len(dfBytes))))
-					Expect(dfBytes).To(ContainSubstring("FROM some-stack"))
-					Expect(dfBytes).To(ContainSubstring(`"some-buildpack-name-1-versioned-url"`))
-					Expect(dfBytes).To(ContainSubstring("/tmp/buildpacks/0d75acab3a54a7f434405f9cce289eb7"))
-					Expect(dfBytes).To(ContainSubstring(`"some-buildpack-name-2-versioned-url"`))
-					Expect(dfBytes).To(ContainSubstring("/tmp/buildpacks/d144777ad4a8489c942ce839db1ad73d"))
-				}).Return(progress),
+				mockImage.EXPECT().Pull("some-stack").Return(progress),
 				mockEngine.EXPECT().NewContainer("some-name-staging", gomock.Any(), gomock.Any()).Do(func(_ string, config *container.Config, hostConfig *container.HostConfig) {
 					Expect(config.Hostname).To(Equal("some-name"))
-					Expect(config.User).To(Equal("root"))
 					Expect(config.ExposedPorts).To(HaveLen(0))
 					sort.Strings(config.Env)
-					Expect(config.Env).To(Equal(fixtures.ProvidedStagingEnv("MEMORY_LIMIT=1024m")))
-					Expect(config.Image).To(Equal("some-tag"))
-					Expect(config.WorkingDir).To(Equal("/home/vcap"))
-					Expect(config.Entrypoint).To(Equal(strslice.StrSlice{
-						"/bin/bash", "-c", fixtures.StageRSyncScript(),
-						"some-buildpack-one,some-buildpack-two", "true",
+					Expect(config.Env).To(Equal([]string{
+						"MEMORY_LIMIT=1024m",
+						"PACK_APP_NAME=some-name",
+						"TEST_ENV_KEY=test-env-value",
+						"TEST_STAGING_ENV_KEY=test-staging-env-value",
+						"VCAP_SERVICES=" + `{"some-type":[{"name":"some-name","label":"","tags":null,"plan":"","credentials":null,"syslog_drain_url":null,"provider":null,"volume_mounts":null}]}`,
 					}))
-					Expect(hostConfig.Binds).To(Equal([]string{"some-app-dir:/tmp/local"}))
+					Expect(config.Image).To(Equal("some-stack"))
+					Expect(config.WorkingDir).To(Equal("/tmp/app"))
+					Expect(config.Cmd).To(Equal(strslice.StrSlice{
+						"-skipDetect=true", "-buildpackOrder", "some-buildpack-one,some-buildpack-two",
+					}))
 				}).Return(mockContainer, nil),
 			)
 
-			buildpackCopy1 := mockContainer.EXPECT().StreamFileTo(buildpackZipStream1, "/tmp/some-checksum-one.zip")
-			buildpackCopy2 := mockContainer.EXPECT().StreamFileTo(buildpackZipStream2, "/tmp/some-checksum-two.zip")
+			buildpackCopy1 := mockContainer.EXPECT().StreamFileTo(buildpackZipStream1, "/buildpacks/some-name-one.zip")
+			buildpackCopy2 := mockContainer.EXPECT().StreamFileTo(buildpackZipStream2, "/buildpacks/some-name-two.zip")
 			appExtract := mockContainer.EXPECT().ExtractTo(config.AppTar, "/tmp/app")
-			cacheExtract := mockContainer.EXPECT().ExtractTo(localCache, "/tmp/cache")
+			cacheExtract := mockContainer.EXPECT().ExtractTo(localCache, "/cache")
 
 			gomock.InOrder(
 				mockContainer.EXPECT().Start("[some-name] % ", logs, nil).Return(int64(0), nil).
@@ -165,58 +143,5 @@ var _ = Describe("Stager", func() {
 		// TODO: test single-buildpack case
 		// TODO: test non-zero command return status
 		// TODO: test no app dir case
-		// TODO: test without rsync
-	})
-
-	Describe("#Download", func() {
-		It("should return the specified file", func() {
-			progress := make(chan engine.Progress, 1)
-			progress <- mockProgress{Value: "some-progress"}
-			close(progress)
-
-			mockVersioner.EXPECT().Build(gomock.Any(), gomock.Any()).Times(len(stager.SystemBuildpacks))
-			gomock.InOrder(
-				mockImage.EXPECT().Build("some-tag", gomock.Any()).Return(progress),
-				mockEngine.EXPECT().NewContainer("download", gomock.Any(), nil).Do(func(_ string, config *container.Config, _ *container.HostConfig) {
-					Expect(config.Hostname).To(Equal("download"))
-					Expect(config.User).To(Equal("root"))
-					Expect(config.ExposedPorts).To(HaveLen(0))
-					Expect(config.Image).To(Equal("some-tag"))
-					Expect(config.Entrypoint).To(Equal(strslice.StrSlice{"read"}))
-				}).Return(mockContainer, nil),
-			)
-
-			stream := engine.NewStream(mockReadCloser{Value: "some-stream"}, 100)
-			gomock.InOrder(
-				mockContainer.EXPECT().StreamFileFrom("/some-path").Return(stream, nil),
-				mockContainer.EXPECT().CloseAfterStream(&stream),
-			)
-
-			Expect(stager.Download("/some-path", "some-stack")).To(Equal(stream))
-			Expect(mockLoader.Progress).To(Receive(Equal(mockProgress{Value: "some-progress"})))
-		})
-	})
-
-	Describe("#DownloadTar", func() {
-		It("should return an archive of the specified folder", func() {
-			progress := make(chan engine.Progress, 1)
-			progress <- mockProgress{Value: "some-progress"}
-			close(progress)
-
-			mockVersioner.EXPECT().Build(gomock.Any(), gomock.Any()).Times(len(stager.SystemBuildpacks))
-			gomock.InOrder(
-				mockImage.EXPECT().Build("some-tag", gomock.Any()).Return(progress),
-				mockEngine.EXPECT().NewContainer("download", gomock.Any(), nil).Return(mockContainer, nil),
-			)
-
-			stream := engine.NewStream(mockReadCloser{Value: "some-stream"}, 100)
-			gomock.InOrder(
-				mockContainer.EXPECT().StreamTarFrom("/some-path").Return(stream, nil),
-				mockContainer.EXPECT().CloseAfterStream(&stream),
-			)
-
-			Expect(stager.DownloadTar("/some-path", "some-stack")).To(Equal(stream))
-			Expect(mockLoader.Progress).To(Receive(Equal(mockProgress{Value: "some-progress"})))
-		})
 	})
 })
