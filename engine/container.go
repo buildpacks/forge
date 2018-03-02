@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -14,34 +15,92 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/strslice"
 	docker "github.com/docker/docker/client"
+	"github.com/docker/go-connections/nat"
 	gouuid "github.com/nu7hatch/gouuid"
 )
 
 type Container struct {
-	Docker        *docker.Client
-	Exit          <-chan struct{}
-	CheckInterval <-chan time.Time
-	id            string
-	config        *container.Config
+	Exit   <-chan struct{}
+	Check  <-chan time.Time
+	docker *docker.Client
+	id     string
+	config *container.Config
+}
+
+type ContainerConfig struct {
+	// Internal
+	Hostname   string
+	User       string
+	Image      string
+	WorkingDir string
+	Env        []string
+	Entrypoint []string
+	Cmd        []string
+
+	// External
+	Binds     []string
+	HostIP    string
+	HostPort  string
+	Memory    int64
+	DiskQuota int64
+
+	// Healthcheck
+	Test        []string
+	Interval    time.Duration
+	Timeout     time.Duration
+	StartPeriod time.Duration
+	Retries     int
 }
 
 type TTY interface {
 	Run(remoteIn io.Reader, remoteOut io.WriteCloser, resize func(w, h uint16) error) error
 }
 
-func NewContainer(docker *docker.Client, name string, config *container.Config, hostConfig *container.HostConfig) (*Container, error) {
+func (e *Engine) NewContainer(name string, config *ContainerConfig) (*Container, error) {
 	uuid, err := gouuid.NewV4()
 	if err != nil {
 		return nil, err
 	}
+	contConfig := &container.Config{
+		Hostname:   config.Hostname,
+		User:       config.User,
+		Image:      config.Image,
+		WorkingDir: config.WorkingDir,
+		Env:        config.Env,
+		Entrypoint: strslice.StrSlice(config.Entrypoint),
+		Cmd:        strslice.StrSlice(config.Cmd),
+	}
+	if len(config.Test) > 0 {
+		contConfig.Healthcheck = &container.HealthConfig{
+			Test:        config.Test,
+			Interval:    config.Interval,
+			Timeout:     config.Timeout,
+			StartPeriod: config.StartPeriod,
+			Retries:     config.Retries,
+		}
+	}
+	hostConfig := &container.HostConfig{
+		Binds: config.Binds,
+		PortBindings: nat.PortMap{
+			"8080/tcp": {{
+				HostIP:   config.HostIP,
+				HostPort: config.HostPort,
+			}},
+		},
+		Resources: container.Resources{
+			Memory:    config.Memory,
+			DiskQuota: config.DiskQuota,
+		},
+	}
 	ctx := context.Background()
-	response, err := docker.ContainerCreate(ctx, config, hostConfig, nil, fmt.Sprintf("%s-%s", name, uuid))
+	response, err := e.docker.ContainerCreate(ctx, contConfig, hostConfig, nil, fmt.Sprintf("%s-%s", name, uuid))
 	if err != nil {
 		return nil, err
 	}
 	check := time.NewTicker(time.Second).C
-	return &Container{docker, nil, check, response.ID, config}, nil
+	return &Container{e.Exit, check, e.docker, response.ID, contConfig}, nil
 }
 
 func (c *Container) ID() string {
@@ -50,7 +109,7 @@ func (c *Container) ID() string {
 
 func (c *Container) Close() error {
 	ctx := context.Background()
-	return c.Docker.ContainerRemove(ctx, c.id, types.ContainerRemoveOptions{
+	return c.docker.ContainerRemove(ctx, c.id, types.ContainerRemoveOptions{
 		Force: true,
 	})
 }
@@ -68,7 +127,7 @@ func (c *Container) CloseAfterStream(stream *Stream) error {
 
 func (c *Container) Background() error {
 	ctx := context.Background()
-	return c.Docker.ContainerStart(ctx, c.id, types.ContainerStartOptions{})
+	return c.docker.ContainerStart(ctx, c.id, types.ContainerStartOptions{})
 }
 
 func (c *Container) Start(logPrefix string, logs io.Writer, restart <-chan time.Time) (status int64, err error) {
@@ -91,10 +150,10 @@ func (c *Container) Start(logPrefix string, logs io.Writer, restart <-chan time.
 	logQueue := copyStreams(logs, logPrefix)
 	defer close(logQueue)
 
-	if err := c.Docker.ContainerStart(ctx, c.id, types.ContainerStartOptions{}); err != nil {
+	if err := c.docker.ContainerStart(ctx, c.id, types.ContainerStartOptions{}); err != nil {
 		return 0, err
 	}
-	contLogs, err := c.Docker.ContainerLogs(ctx, c.id, types.ContainerLogsOptions{
+	contLogs, err := c.docker.ContainerLogs(ctx, c.id, types.ContainerLogsOptions{
 		ShowStdout: true,
 		ShowStderr: true,
 		Timestamps: true,
@@ -109,7 +168,17 @@ func (c *Container) Start(logPrefix string, logs io.Writer, restart <-chan time.
 		return c.restart(ctx, contLogs, logQueue, restart), nil
 	}
 	defer contLogs.Close()
-	return c.Docker.ContainerWait(ctx, c.id)
+
+	respC, errC := c.docker.ContainerWait(ctx, c.id, "")
+	select {
+	case resp := <-respC:
+		if resp.Error != nil {
+			return 0, errors.New(resp.Error.Message)
+		}
+		return resp.StatusCode, nil
+	case err := <-errC:
+		return 0, err
+	}
 }
 
 func (c *Container) restart(ctx context.Context, contLogs io.ReadCloser, logQueue chan<- io.Reader, restart <-chan time.Time) (status int64) {
@@ -119,10 +188,10 @@ func (c *Container) restart(ctx context.Context, contLogs io.ReadCloser, logQueu
 		select {
 		case <-restart:
 			wait := time.Second
-			if err := c.Docker.ContainerRestart(ctx, c.id, &wait); err != nil {
+			if err := c.docker.ContainerRestart(ctx, c.id, &wait); err != nil {
 				continue
 			}
-			contJSON, err := c.Docker.ContainerInspect(ctx, c.id)
+			contJSON, err := c.docker.ContainerInspect(ctx, c.id)
 			if err != nil {
 				continue
 			}
@@ -131,7 +200,7 @@ func (c *Container) restart(ctx context.Context, contLogs io.ReadCloser, logQueu
 				startedAt = time.Unix(0, 0)
 			}
 			contLogs.Close()
-			contLogs, err = c.Docker.ContainerLogs(ctx, c.id, types.ContainerLogsOptions{
+			contLogs, err = c.docker.ContainerLogs(ctx, c.id, types.ContainerLogsOptions{
 				Timestamps: true,
 				ShowStdout: true,
 				ShowStderr: true,
@@ -202,18 +271,18 @@ func (c *Container) Shell(tty TTY, shell ...string) (err error) {
 		Env:          c.config.Env,
 		Cmd:          shell,
 	}
-	idResp, err := c.Docker.ContainerExecCreate(ctx, c.id, config)
+	idResp, err := c.docker.ContainerExecCreate(ctx, c.id, config)
 	if err != nil {
 		return err
 	}
 
-	attachResp, err := c.Docker.ContainerExecAttach(ctx, idResp.ID, config)
+	attachResp, err := c.docker.ContainerExecAttach(ctx, idResp.ID, types.ExecStartCheck{Tty: true})
 	if err != nil {
 		return err
 	}
 
 	return tty.Run(attachResp.Reader, attachResp.Conn, func(h, w uint16) error {
-		return c.Docker.ContainerExecResize(ctx, idResp.ID, types.ResizeOptions{Height: uint(h), Width: uint(w)})
+		return c.docker.ContainerExecResize(ctx, idResp.ID, types.ResizeOptions{Height: uint(h), Width: uint(w)})
 	})
 }
 
@@ -225,8 +294,8 @@ func (c *Container) HealthCheck() <-chan string {
 			select {
 			case <-c.Exit:
 				return
-			case <-c.CheckInterval:
-				contJSON, err := c.Docker.ContainerInspect(ctx, c.id)
+			case <-c.Check:
+				contJSON, err := c.docker.ContainerInspect(ctx, c.id)
 				if err != nil || contJSON.State == nil || contJSON.State.Health == nil {
 					status <- types.NoHealthcheck
 					continue
@@ -240,7 +309,7 @@ func (c *Container) HealthCheck() <-chan string {
 
 func (c *Container) Commit(ref string) (imageID string, err error) {
 	ctx := context.Background()
-	response, err := c.Docker.ContainerCommit(ctx, c.id, types.ContainerCommitOptions{
+	response, err := c.docker.ContainerCommit(ctx, c.id, types.ContainerCommitOptions{
 		Reference: ref,
 		Pause:     true,
 		Config:    c.config,
@@ -250,7 +319,7 @@ func (c *Container) Commit(ref string) (imageID string, err error) {
 
 func (c *Container) ExtractTo(tar io.Reader, path string) error {
 	ctx := context.Background()
-	return c.Docker.CopyToContainer(ctx, c.id, path, onlyReader(tar), types.CopyToContainerOptions{})
+	return c.docker.CopyToContainer(ctx, c.id, path, onlyReader(tar), types.CopyToContainerOptions{})
 }
 
 func onlyReader(r io.Reader) io.Reader {
@@ -280,7 +349,7 @@ func (c *Container) StreamTarTo(stream Stream, path string) error {
 
 func (c *Container) StreamFileFrom(path string) (Stream, error) {
 	ctx := context.Background()
-	tar, stat, err := c.Docker.CopyFromContainer(ctx, c.id, path)
+	tar, stat, err := c.docker.CopyFromContainer(ctx, c.id, path)
 	if err != nil {
 		return Stream{}, err
 	}
@@ -294,7 +363,7 @@ func (c *Container) StreamFileFrom(path string) (Stream, error) {
 
 func (c *Container) StreamTarFrom(path string) (Stream, error) {
 	ctx := context.Background()
-	tar, stat, err := c.Docker.CopyFromContainer(ctx, c.id, path+"/.")
+	tar, stat, err := c.docker.CopyFromContainer(ctx, c.id, path+"/.")
 	if err != nil {
 		return Stream{}, err
 	}

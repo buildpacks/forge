@@ -5,7 +5,23 @@ import (
 	"bytes"
 	"errors"
 	"io"
+
+	docker "github.com/docker/docker/client"
 )
+
+type Engine struct {
+	Exit   <-chan struct{}
+	docker *docker.Client
+}
+
+func New() (*Engine, error) {
+	docker, err := docker.NewEnvClient()
+	return &Engine{docker: docker}, err
+}
+
+func (e *Engine) Close() error {
+	return e.docker.Close()
+}
 
 type Stream struct {
 	io.ReadCloser

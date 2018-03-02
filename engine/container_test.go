@@ -12,8 +12,6 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/strslice"
 	"github.com/docker/go-connections/nat"
 	gouuid "github.com/nu7hatch/gouuid"
 	. "github.com/onsi/ginkgo"
@@ -32,35 +30,31 @@ func (t testTTY) Run(remoteIn io.Reader, remoteOut io.WriteCloser, resize func(h
 
 var _ = Describe("Container", func() {
 	var (
-		contr       *Container
-		config      *container.Config
-		hostConfig  *container.HostConfig
-		entrypoint  strslice.StrSlice
-		healthcheck *container.HealthConfig
+		contr      *Container
+		config     *ContainerConfig
+		entrypoint []string
+		healthTest []string
 	)
 
 	BeforeEach(func() {
-		entrypoint = strslice.StrSlice{"bash"}
-		healthcheck = nil
+		entrypoint = []string{"bash"}
+		healthTest = nil
 	})
 
 	JustBeforeEach(func() {
-		// TODO: specify user
-		config = &container.Config{
-			Healthcheck: healthcheck,
-			Hostname:    "test-container",
-			Image:       "sclevine/test",
-			Env:         []string{"SOME-KEY=some-value"},
-			Labels:      map[string]string{"some-label-key": "some-label-value"},
-			Entrypoint:  entrypoint,
-		}
-		hostConfig = &container.HostConfig{
-			PortBindings: nat.PortMap{
-				"8080/tcp": {{HostIP: "127.0.0.1", HostPort: freePort()}},
-			},
+		config = &ContainerConfig{
+			Hostname:   "test-container",
+			Image:      "sclevine/test",
+			Env:        []string{"SOME-KEY=some-value"},
+			Entrypoint: entrypoint,
+			HostIP:     "127.0.0.1",
+			HostPort:   freePort(),
+			Test:       healthTest,
+			Interval:   100 * time.Millisecond,
+			Retries:    100,
 		}
 		var err error
-		contr, err = NewContainer(client, "some-name", config, hostConfig)
+		contr, err = engine.NewContainer("some-name", config)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -69,15 +63,22 @@ var _ = Describe("Container", func() {
 			Expect(contr.Close()).To(Succeed())
 			Expect(containerFound(contr.ID())).To(BeFalse())
 		}
-		Expect(client.Close()).To(Succeed())
 	})
 
 	Describe(".NewContainer", func() {
+		BeforeEach(func() {
+			entrypoint = []string{"bash"}
+			healthTest = []string{"echo"}
+		})
+
 		It("should configure the container", func() {
 			info := containerInfo(contr.ID())
 			Expect(info.Name).To(HavePrefix("/some-name-"))
 			Expect(info.Config.Env).To(ContainElement("SOME-KEY=some-value"))
-			Expect(info.HostConfig.PortBindings).To(Equal(hostConfig.PortBindings))
+			Expect(info.Config.Healthcheck.Test).To(Equal([]string{"echo"}))
+			Expect(info.HostConfig.PortBindings).To(Equal(nat.PortMap{
+				"8080/tcp": {{HostIP: "127.0.0.1", HostPort: config.HostPort}},
+			}))
 		})
 	})
 
@@ -130,9 +131,7 @@ var _ = Describe("Container", func() {
 
 	Describe("#Background", func() {
 		BeforeEach(func() {
-			entrypoint = strslice.StrSlice{
-				"tail", "-f", "/dev/null",
-			}
+			entrypoint = []string{"tail", "-f", "/dev/null"}
 		})
 
 		It("should start the container in the background", func() {
@@ -151,7 +150,7 @@ var _ = Describe("Container", func() {
 	Describe("#Start", func() {
 		Context("when signaled to exit", func() {
 			BeforeEach(func() {
-				entrypoint = strslice.StrSlice{
+				entrypoint = []string{
 					"sh", "-c",
 					`echo some-logs-stdout && \
 					 >&2 echo some-logs-stderr && \
@@ -181,7 +180,7 @@ var _ = Describe("Container", func() {
 
 		Context("when signaled to restart", func() {
 			BeforeEach(func() {
-				entrypoint = strslice.StrSlice{
+				entrypoint = []string{
 					"sh", "-c",
 					`echo some-logs-stdout && \
 					 >&2 echo some-logs-stderr && \
@@ -217,7 +216,7 @@ var _ = Describe("Container", func() {
 
 		Context("when the command finishes successfully", func() {
 			BeforeEach(func() {
-				entrypoint = strslice.StrSlice{
+				entrypoint = []string{
 					"sh", "-c",
 					`echo some-logs-stdout && \
 					 >&2 echo some-logs-stderr && \
@@ -243,7 +242,7 @@ var _ = Describe("Container", func() {
 
 	Describe("#Shell", func() {
 		BeforeEach(func() {
-			entrypoint = strslice.StrSlice{"sh", "-c", "sleep 5"}
+			entrypoint = []string{"sh", "-c", "sleep 5"}
 		})
 
 		It("should connect a local terminal to the container", func() {
@@ -357,19 +356,13 @@ var _ = Describe("Container", func() {
 	Describe("#HealthCheck", func() {
 		Context("when the container reaches a healthy state", func() {
 			BeforeEach(func() {
-				entrypoint = strslice.StrSlice{
-					"tail", "-f", "/dev/null",
-				}
-				healthcheck = &container.HealthConfig{
-					Test:     []string{"CMD", "test", "-f", "/tmp/healthy"},
-					Interval: 100 * time.Millisecond,
-					Retries:  100,
-				}
+				entrypoint = []string{"tail", "-f", "/dev/null"}
+				healthTest = []string{"CMD", "test", "-f", "/tmp/healthy"}
 			})
 
 			It("should report the container health", func() {
 				exit, interval := make(chan struct{}), make(chan time.Time, 1)
-				contr.Exit, contr.CheckInterval = exit, interval
+				contr.Exit, contr.Check = exit, interval
 
 				check := contr.HealthCheck()
 				Expect(changesStatus(interval, check, "none")).To(BeTrue())
@@ -408,12 +401,13 @@ var _ = Describe("Container", func() {
 
 			info, _, err := client.ImageInspectWithRaw(ctx, id)
 			Expect(err).NotTo(HaveOccurred())
-			info.Config.Env = scrubEnv(info.Config.Env)
-			Expect(info.Config).To(Equal(config))
-			Expect(info.RepoTags[0]).To(Equal(ref + ":latest"))
+			Expect(info.Config.Hostname).To(Equal("test-container"))
 
-			config.Image = ref + ":latest"
-			contr2, err := NewContainer(client, "some-name", config, nil)
+			config := &ContainerConfig{
+				Image:      ref + ":latest",
+				Entrypoint: []string{"bash"},
+			}
+			contr2, err := engine.NewContainer("some-name", config)
 			Expect(err).NotTo(HaveOccurred())
 			defer contr2.Close()
 

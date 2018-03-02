@@ -11,8 +11,8 @@ import (
 )
 
 type Image struct {
-	Docker *docker.Client
 	Exit   <-chan struct{}
+	docker *docker.Client
 }
 
 type RegistryCreds struct {
@@ -26,6 +26,10 @@ type Progress interface {
 	Status() (string, error)
 }
 
+func (e *Engine) NewImage() *Image {
+	return &Image{e.Exit, e.docker}
+}
+
 func (i *Image) Build(tag string, dockerfile Stream) <-chan Progress {
 	defer dockerfile.Close()
 	ctx := context.Background()
@@ -37,7 +41,7 @@ func (i *Image) Build(tag string, dockerfile Stream) <-chan Progress {
 		close(progress)
 		return progress
 	}
-	response, err := i.Docker.ImageBuild(ctx, dockerfileTar, types.ImageBuildOptions{
+	response, err := i.docker.ImageBuild(ctx, dockerfileTar, types.ImageBuildOptions{
 		Tags:        []string{tag},
 		PullParent:  true,
 		Remove:      true,
@@ -56,7 +60,7 @@ func (i *Image) Pull(ref string) <-chan Progress {
 	ctx := context.Background()
 	progress := make(chan Progress, 1)
 
-	body, err := i.Docker.ImagePull(ctx, ref, types.ImagePullOptions{})
+	body, err := i.docker.ImagePull(ctx, ref, types.ImagePullOptions{})
 	if err != nil {
 		progress <- progressError{err}
 		close(progress)
@@ -76,7 +80,7 @@ func (i *Image) Push(ref string, creds RegistryCreds) <-chan Progress {
 		close(progress)
 		return progress
 	}
-	body, err := i.Docker.ImagePush(ctx, ref, types.ImagePushOptions{
+	body, err := i.docker.ImagePush(ctx, ref, types.ImagePushOptions{
 		RegistryAuth: base64.StdEncoding.EncodeToString(credsJSON),
 	})
 	if err != nil {
@@ -90,7 +94,7 @@ func (i *Image) Push(ref string, creds RegistryCreds) <-chan Progress {
 
 func (i *Image) Delete(id string) error {
 	ctx := context.Background()
-	_, err := i.Docker.ImageRemove(ctx, id, types.ImageRemoveOptions{
+	_, err := i.docker.ImageRemove(ctx, id, types.ImageRemoveOptions{
 		Force:         true,
 		PruneChildren: true,
 	})

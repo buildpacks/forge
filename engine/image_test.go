@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/docker/docker/api/types/strslice"
 	docker "github.com/docker/docker/client"
 	gouuid "github.com/nu7hatch/gouuid"
 	. "github.com/onsi/ginkgo"
@@ -19,7 +18,7 @@ var _ = Describe("Image", func() {
 	var image *Image
 
 	BeforeEach(func() {
-		image = &Image{Docker: client}
+		image = engine.NewImage()
 	})
 
 	Describe("#Build", func() {
@@ -56,14 +55,11 @@ var _ = Describe("Image", func() {
 			Expect(naCount).To(BeNumerically(">", 0))
 			Expect(naCount).To(BeNumerically("<", 20))
 
-			ctx := context.Background()
-			info, _, err := client.ImageInspectWithRaw(ctx, tag)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(info.RepoTags[0]).To(Equal(tag + ":latest"))
-
-			info.Config.Image = tag + ":latest"
-			info.Config.Entrypoint = strslice.StrSlice{"bash"}
-			contr, err := NewContainer(client, "some-name", info.Config, nil)
+			config := &ContainerConfig{
+				Image:      tag + ":latest",
+				Entrypoint: []string{"bash"},
+			}
+			contr, err := engine.NewContainer("some-name", config)
 			Expect(err).NotTo(HaveOccurred())
 			defer contr.Close()
 
@@ -155,14 +151,11 @@ var _ = Describe("Image", func() {
 			Expect(naCount).To(BeNumerically(">", 0))
 			Expect(naCount).To(BeNumerically("<", 20))
 
-			ctx := context.Background()
-			info, _, err := client.ImageInspectWithRaw(ctx, "sclevine/test")
-			Expect(err).NotTo(HaveOccurred())
-			Expect(info.RepoTags[0]).To(Equal("sclevine/test:latest"))
-
-			info.Config.Image = "sclevine/test:latest"
-			info.Config.Entrypoint = strslice.StrSlice{"sh"}
-			contr, err := NewContainer(client, "some-name", info.Config, nil)
+			config := &ContainerConfig{
+				Image:      "sclevine/test:latest",
+				Entrypoint: []string{"bash"},
+			}
+			contr, err := engine.NewContainer("some-name", config)
 			Expect(err).NotTo(HaveOccurred())
 			defer contr.Close()
 

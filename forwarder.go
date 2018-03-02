@@ -135,7 +135,6 @@ func (f *Forwarder) buildContainerConfig(forwardConfig *ForwardDetails, stack st
 	}
 
 	return &container.Config{
-		User: "vcap",
 		Healthcheck: &container.HealthConfig{
 			Test:     []string{"CMD", "test", "-f", "/tmp/healthy"},
 			Interval: time.Second,
@@ -151,7 +150,6 @@ func (f *Forwarder) buildContainerConfig(forwardConfig *ForwardDetails, stack st
 func (f *Forwarder) buildNetContainerConfig(name string, stack string) *container.Config {
 	return &container.Config{
 		Hostname:     name,
-		User:         "vcap",
 		ExposedPorts: nat.PortSet{"8080/tcp": {}},
 		Image:        stack,
 		Entrypoint: strslice.StrSlice{

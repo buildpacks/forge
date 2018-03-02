@@ -41,7 +41,7 @@ type ReadResetWriter interface {
 	Reset() error
 }
 
-func NewStager(client *docker.Client, httpClient *http.Client, exit <-chan struct{}) *Stager {
+func NewStager(client *docker.Client, exit <-chan struct{}) *Stager {
 	return &Stager{
 		Logs:   os.Stdout,
 		Loader: noopLoader{},
@@ -50,7 +50,7 @@ func NewStager(client *docker.Client, httpClient *http.Client, exit <-chan struc
 			Exit:   exit,
 		},
 		image: &engine.Image{
-			Docker: client,
+			docker: client,
 			Exit:   exit,
 		},
 	}

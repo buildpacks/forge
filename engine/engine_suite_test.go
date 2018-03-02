@@ -9,6 +9,8 @@ import (
 	docker "github.com/docker/docker/client"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
+	. "github.com/sclevine/forge/engine"
 )
 
 func TestEngine(t *testing.T) {
@@ -16,28 +18,33 @@ func TestEngine(t *testing.T) {
 	RunSpecs(t, "Engine Suite")
 }
 
-var client *docker.Client
-
-func setupClient() {
-	if client != nil {
-		return
-	}
-	var err error
-	client, err = docker.NewEnvClient()
-	Expect(err).NotTo(HaveOccurred())
-}
+var (
+	engine *Engine
+	client *docker.Client
+)
 
 var _ = SynchronizedBeforeSuite(func() []byte {
-	setupClient()
+	client, err := docker.NewEnvClient()
+	Expect(err).NotTo(HaveOccurred())
+	defer client.Close()
+
 	ctx := context.Background()
 	body, err := client.ImagePull(ctx, "sclevine/test", types.ImagePullOptions{})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(ioutil.ReadAll(body)).NotTo(BeZero())
+
 	return nil
 }, func(_ []byte) {
-	setupClient()
+	var err error
+
+	engine, err = New()
+	Expect(err).NotTo(HaveOccurred())
+
+	client, err = docker.NewEnvClient()
+	Expect(err).NotTo(HaveOccurred())
 })
 
 var _ = SynchronizedAfterSuite(func() {
+	Expect(engine.Close()).To(Succeed())
 	Expect(client.Close()).To(Succeed())
 }, func() {})

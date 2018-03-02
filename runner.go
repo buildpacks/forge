@@ -26,7 +26,7 @@ const runScript = `
 	{{if .RSync -}}
 	rsync -a /tmp/local/ /home/vcap/app/
 	{{end -}}
-	exec /launcher "$1"
+	exec /packs/launcher "$1"
 `
 
 var bytesPattern = regexp.MustCompile(`(?i)^(-?\d+)([KMGT])B?$`)
@@ -51,7 +51,7 @@ type RunConfig struct {
 	NetworkConfig *NetworkConfig
 }
 
-func NewRunner(client *docker.Client, exit <-chan struct{}) *Runner {
+func NewRunner(engine Engine) *Runner {
 	return &Runner{
 		Logs: os.Stdout,
 		TTY: &term.TTY{
@@ -64,9 +64,10 @@ func NewRunner(client *docker.Client, exit <-chan struct{}) *Runner {
 			Exit:   exit,
 		},
 		image: &engine.Image{
-			Docker: client,
+			docker: client,
 			Exit:   exit,
 		},
+		image: engine.Nw
 	}
 }
 

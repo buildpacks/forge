@@ -1,4 +1,5 @@
 /vendor
+/engine/vendor
 .DS_Store
 .idea
 *.droplet

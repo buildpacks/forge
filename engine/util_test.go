@@ -15,7 +15,7 @@ import (
 func containerFound(id string) bool {
 	_, err := client.ContainerInspect(context.Background(), id)
 	if err != nil {
-		ExpectWithOffset(1, docker.IsErrContainerNotFound(err)).To(BeTrue())
+		ExpectWithOffset(1, docker.IsErrNotFound(err)).To(BeTrue())
 		return false
 	}
 	return true
@@ -53,18 +53,6 @@ func freePort() string {
 	defer listener.Close()
 	address := listener.Addr().String()
 	return strings.SplitN(address, ":", 2)[1]
-}
-
-func scrubEnv(old []string) (new []string) {
-	for _, v := range old {
-		switch {
-		case strings.Contains(v, "proxy="):
-		case strings.Contains(v, "PATH="):
-		default:
-			new = append(new, v)
-		}
-	}
-	return new
 }
 
 func changesStatus(interval chan<- time.Time, check <-chan string, status string) bool {

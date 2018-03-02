@@ -2,36 +2,11 @@ required = [
   # Utilities
   "github.com/onsi/ginkgo/ginkgo",
   "github.com/golang/mock/mockgen",
-
-  # Transitive constraints - CF CLI
-  "code.cloudfoundry.org/gofileutils/fileutils",
-  "github.com/blang/semver",
-  "github.com/cloudfoundry/bytefmt",
-  "github.com/fatih/color",
-  "github.com/lunixbochs/vtclean",
-  "github.com/mattn/go-colorable",
-  "github.com/mattn/go-isatty",
-  "github.com/mattn/go-runewidth",
-  "github.com/SermoDigital/jose",
-  "github.com/vito/go-interact/interact",
-  "golang.org/x/text/encoding",
-
-  # Transitive constraints - Docker
-  "github.com/docker/distribution/digest",
-  "github.com/docker/go-connections/nat",
-  "github.com/docker/go-units",
-  "github.com/opencontainers/runc/libcontainer/system",
-  "github.com/pkg/errors",
-  "golang.org/x/sys/unix",
-  "golang.org/x/net/context",
-  "golang.org/x/crypto/ssh/terminal",
-  "github.com/Sirupsen/logrus",
-  "github.com/Azure/go-ansiterm",
-  "github.com/Microsoft/go-winio",
 ]
 
 ignored = [
   "code.cloudfoundry.org/cli/cf/resources",
+  "github.com/docker/docker/*",
 ]
 
 # Library
@@ -46,11 +21,7 @@ ignored = [
 
 [[constraint]]
   name = "code.cloudfoundry.org/cli"
-  version = "=6.32.0"
-
-[[constraint]]
-  name = "github.com/docker/docker"
-  revision = "v17.03.2-ce"
+  version = "=6.34.1"
 
 # Test
 
@@ -65,99 +36,3 @@ ignored = [
 [[constraint]]
   name = "github.com/golang/mock"
   branch = "master"
-
-# CF CLI - Transitive
-
-[[constraint]]
-  name = "code.cloudfoundry.org/gofileutils"
-  revision = "4d0c80011a0f37da1711c184028bc40137cd45af"
-
-[[constraint]]
-  name = "github.com/blang/semver"
-  revision = "4a1e882c79dcf4ec00d2e29fac74b9c8938d5052"
-
-[[constraint]]
-  name = "github.com/cloudfoundry/bytefmt"
-  revision = "df625de5ac824ed098ad814bd960b4c2dc481898"
-
-[[constraint]]
-  name = "github.com/fatih/color"
-  revision = "42c364ba490082e4815b5222728711b3440603eb"
-
-[[constraint]]
-  name = "github.com/lunixbochs/vtclean"
-  revision = "4428d67a89b36ecae7998e983e5814d0d9c45a04"
-
-[[constraint]]
-  name = "github.com/mattn/go-colorable"
-  revision = "d228849504861217f796da67fae4f6e347643f15"
-
-[[constraint]]
-  name = "github.com/mattn/go-isatty"
-  revision = "30a891c33c7cde7b02a981314b4228ec99380cca"
-
-[[constraint]]
-  name = "github.com/mattn/go-runewidth"
-  revision = "14207d285c6c197daabb5c9793d63e7af9ab2d50"
-
-[[constraint]]
-  name = "github.com/SermoDigital/jose"
-  revision = "2bd9b81ac51d6d6134fcd4fd846bd2e7347a15f9"
-
-[[constraint]]
-  name = "github.com/vito/go-interact"
-  revision = "cbd56b28e8411a00fd4b7f92e8c870581558bf26"
-
-[[constraint]]
-  name = "golang.org/x/text"
-  revision = "bd91bbf73e9a4a801adbfb97133c992678533126"
-
-# Docker - Transitive
-
-[[constraint]]
-  name = "github.com/docker/distribution"
-  revision = "28602af35aceda2f8d571bad7ca37a54cf0250bc"
-
-[[constraint]]
-  name = "github.com/docker/go-connections"
-  revision = "ecb4cb2dd420ada7df7f2593d6c25441f65f69f2"
-
-[[constraint]]
-  name = "github.com/docker/go-units"
-  revision = "8a7beacffa3009a9ac66bad506b18ffdd110cf97"
-
-[[constraint]]
-  name = "github.com/Azure/go-ansiterm"
-  revision = "388960b655244e76e24c75f48631564eaefade62"
-
-[[constraint]]
-  name = "github.com/Microsoft/go-winio"
-  version = "=0.3.8"
-
-[[constraint]]
-  name = "github.com/opencontainers/runc"
-  revision = "54296cf40ad8143b62dbcaa1d90e520a2136ddfe"
-  source = "https://github.com/docker/runc.git"
-
-[[constraint]]
-  name = "github.com/pkg/errors"
-  revision = "839d9e913e063e28dfd0e6c7b7512793e0a48be9"
-
-[[constraint]]
-  name = "github.com/Sirupsen/logrus"
-  version = "=0.11.0"
-
-[[constraint]]
-  name = "golang.org/x/crypto"
-  revision = "3fbbcd23f1cb824e69491a5930cfeff09b12f4d2"
-
-[[constraint]]
-  name = "golang.org/x/net"
-  revision = "2beffdc2e92c8a3027590f898fe88f69af48a3f8"
-  source = "https://github.com/tonistiigi/net.git"
-
-[[constraint]]
-  name = "golang.org/x/sys"
-  revision = "8f0908ab3b2457e2e15403d3697c9ef5cb4b57a9"
-
-
