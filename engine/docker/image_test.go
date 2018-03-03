@@ -1,4 +1,4 @@
-package engine_test
+package docker_test
 
 import (
 	"bytes"
@@ -11,14 +11,21 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	. "github.com/sclevine/forge/engine"
+	eng "github.com/sclevine/forge/engine"
+	. "github.com/sclevine/forge/engine/docker"
 )
 
 var _ = Describe("Image", func() {
-	var image *Image
+	var (
+		dockerEng eng.Engine
+		dockerImg eng.Image
+	)
 
 	BeforeEach(func() {
-		image = engine.NewImage()
+		var err error
+		dockerEng, err = New()
+		Expect(err).NotTo(HaveOccurred())
+		dockerImg = dockerEng.NewImage()
 	})
 
 	Describe("#Build", func() {
@@ -39,9 +46,9 @@ var _ = Describe("Image", func() {
 				FROM sclevine/test
 				RUN echo some-data > /some-path
 			`)
-			dockerfileStream := NewStream(ioutil.NopCloser(dockerfile), int64(dockerfile.Len()))
+			dockerfileStream := eng.NewStream(ioutil.NopCloser(dockerfile), int64(dockerfile.Len()))
 
-			progress := image.Build(tag, dockerfileStream)
+			progress := dockerImg.Build(tag, dockerfileStream)
 			naCount := 0
 			for p := range progress {
 				status, err := p.Status()
@@ -55,11 +62,11 @@ var _ = Describe("Image", func() {
 			Expect(naCount).To(BeNumerically(">", 0))
 			Expect(naCount).To(BeNumerically("<", 20))
 
-			config := &ContainerConfig{
+			contr, err := engine.NewContainer(&eng.ContainerConfig{
+				Name:       "some-name",
 				Image:      tag + ":latest",
 				Entrypoint: []string{"bash"},
-			}
-			contr, err := engine.NewContainer("some-name", config)
+			})
 			Expect(err).NotTo(HaveOccurred())
 			defer contr.Close()
 
@@ -73,9 +80,9 @@ var _ = Describe("Image", func() {
 				FROM sclevine/test
 				RUN echo some-data > /some-path
 			`)
-			dockerfileStream := NewStream(ioutil.NopCloser(dockerfile), int64(dockerfile.Len())+100)
+			dockerfileStream := eng.NewStream(ioutil.NopCloser(dockerfile), int64(dockerfile.Len())+100)
 
-			progress := image.Build(tag, dockerfileStream)
+			progress := dockerImg.Build(tag, dockerfileStream)
 			var err error
 			for p := range progress {
 				if _, pErr := p.Status(); pErr != nil {
@@ -93,9 +100,9 @@ var _ = Describe("Image", func() {
 			dockerfile := bytes.NewBufferString(`
 				SOME BAD DOCKERFILE
 			`)
-			dockerfileStream := NewStream(ioutil.NopCloser(dockerfile), int64(dockerfile.Len()))
+			dockerfileStream := eng.NewStream(ioutil.NopCloser(dockerfile), int64(dockerfile.Len()))
 
-			progress := image.Build(tag, dockerfileStream)
+			progress := dockerImg.Build(tag, dockerfileStream)
 			var err error
 			for p := range progress {
 				if _, pErr := p.Status(); pErr != nil {
@@ -114,9 +121,9 @@ var _ = Describe("Image", func() {
 				FROM sclevine/test
 				RUN false
 			`)
-			dockerfileStream := NewStream(ioutil.NopCloser(dockerfile), int64(dockerfile.Len()))
+			dockerfileStream := eng.NewStream(ioutil.NopCloser(dockerfile), int64(dockerfile.Len()))
 
-			progress := image.Build(tag, dockerfileStream)
+			progress := dockerImg.Build(tag, dockerfileStream)
 			var err error
 			for p := range progress {
 				if _, err = p.Status(); err != nil {
@@ -137,7 +144,7 @@ var _ = Describe("Image", func() {
 	Describe("#Pull", func() {
 		// TODO: consider using a new image for this test
 		It("should pull a Docker image", func() {
-			progress := image.Pull("sclevine/test")
+			progress := dockerImg.Pull("sclevine/test")
 			naCount := 0
 			for p := range progress {
 				status, err := p.Status()
@@ -151,11 +158,11 @@ var _ = Describe("Image", func() {
 			Expect(naCount).To(BeNumerically(">", 0))
 			Expect(naCount).To(BeNumerically("<", 20))
 
-			config := &ContainerConfig{
+			contr, err := dockerEng.NewContainer(&eng.ContainerConfig{
+				Name:       "some-name",
 				Image:      "sclevine/test:latest",
 				Entrypoint: []string{"bash"},
-			}
-			contr, err := engine.NewContainer("some-name", config)
+			})
 			Expect(err).NotTo(HaveOccurred())
 			defer contr.Close()
 
@@ -165,9 +172,9 @@ var _ = Describe("Image", func() {
 		})
 
 		It("should send an error when the image pull request is invalid", func() {
-			progress := image.Pull("-----")
+			progress := dockerImg.Pull("-----")
 
-			var progressErr Progress
+			var progressErr eng.Progress
 			Expect(progress).To(Receive(&progressErr))
 			_, err := progressErr.Status()
 			Expect(err).To(MatchError(HaveSuffix("invalid reference format")))
@@ -175,7 +182,7 @@ var _ = Describe("Image", func() {
 		})
 
 		It("should send an error when an error occurs during the image build", func() {
-			progress := image.Pull("sclevine/bad-test")
+			progress := dockerImg.Pull("sclevine/bad-test")
 			var err error
 			for p := range progress {
 				if _, err = p.Status(); err != nil {
@@ -198,16 +205,16 @@ var _ = Describe("Image", func() {
 			tag := fmt.Sprintf("some-image-%s", uuid)
 
 			dockerfile := bytes.NewBufferString("FROM sclevine/test")
-			dockerfileStream := NewStream(ioutil.NopCloser(dockerfile), int64(dockerfile.Len()))
+			dockerfileStream := eng.NewStream(ioutil.NopCloser(dockerfile), int64(dockerfile.Len()))
 
-			progress := image.Build(tag, dockerfileStream)
+			progress := dockerImg.Build(tag, dockerfileStream)
 			for p := range progress {
 				_, err := p.Status()
 				Expect(err).NotTo(HaveOccurred())
 			}
 			defer clearImage(tag)
 
-			Expect(image.Delete(tag)).To(Succeed())
+			Expect(dockerImg.Delete(tag)).To(Succeed())
 
 			ctx := context.Background()
 			_, _, err = client.ImageInspectWithRaw(ctx, tag)
@@ -215,7 +222,7 @@ var _ = Describe("Image", func() {
 		})
 
 		It("should return an error when deleting fails", func() {
-			err := image.Delete("-----")
+			err := dockerImg.Delete("-----")
 			Expect(err).To(MatchError(HaveSuffix("invalid reference format")))
 		})
 	})

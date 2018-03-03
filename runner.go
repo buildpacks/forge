@@ -35,8 +35,7 @@ type Runner struct {
 	Logs   io.Writer
 	TTY    engine.TTY
 	Loader Loader
-	engine forgeEngine
-	image  forgeImage
+	engine Engine
 }
 
 type RunConfig struct {
@@ -59,15 +58,7 @@ func NewRunner(engine Engine) *Runner {
 			Out: os.Stdout,
 		},
 		Loader: noopLoader{},
-		engine: &dockerEngine{
-			Docker: client,
-			Exit:   exit,
-		},
-		image: &engine.Image{
-			docker: client,
-			Exit:   exit,
-		},
-		image: engine.Nw
+		engine: engine,
 	}
 }
 
@@ -144,7 +135,7 @@ func (r *Runner) Export(config *ExportConfig) (imageID string, err error) {
 }
 
 func (r *Runner) pull(stack string) error {
-	return r.Loader.Loading("Image", r.image.Pull(stack))
+	return r.Loader.Loading("Image", r.engine.NewImage().Pull(stack))
 }
 
 func (r *Runner) buildContainerConfig(config *AppConfig, stack string, rsync, networked bool) (*container.Config, error) {

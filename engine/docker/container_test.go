@@ -1,4 +1,4 @@
-package engine_test
+package docker_test
 
 import (
 	"archive/tar"
@@ -18,7 +18,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 
-	. "github.com/sclevine/forge/engine"
+	eng "github.com/sclevine/forge/engine"
+	. "github.com/sclevine/forge/engine/docker"
 	"github.com/sclevine/forge/testutil"
 )
 
@@ -30,19 +31,25 @@ func (t testTTY) Run(remoteIn io.Reader, remoteOut io.WriteCloser, resize func(h
 
 var _ = Describe("Container", func() {
 	var (
-		contr      *Container
-		config     *ContainerConfig
-		entrypoint []string
-		healthTest []string
+		dockerEng   eng.Engine
+		dockerContr eng.Container
+		config      *eng.ContainerConfig
+		entrypoint  []string
+		healthTest  []string
+		exit        chan struct{}
+		check       chan time.Time
 	)
 
 	BeforeEach(func() {
 		entrypoint = []string{"bash"}
 		healthTest = nil
+		exit = nil
+		check = nil
 	})
 
 	JustBeforeEach(func() {
-		config = &ContainerConfig{
+		config = &eng.ContainerConfig{
+			Name:       "some-name",
 			Hostname:   "test-container",
 			Image:      "sclevine/test",
 			Env:        []string{"SOME-KEY=some-value"},
@@ -52,19 +59,24 @@ var _ = Describe("Container", func() {
 			Test:       healthTest,
 			Interval:   100 * time.Millisecond,
 			Retries:    100,
+			Exit:       exit,
+			Check:      check,
 		}
 		var err error
-		contr, err = engine.NewContainer("some-name", config)
+		dockerEng, err = New()
+		Expect(err).NotTo(HaveOccurred())
+		dockerContr, err = dockerEng.NewContainer(config)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
 	AfterEach(func() {
-		if containerFound(contr.ID()) {
-			Expect(contr.Close()).To(Succeed())
-			Expect(containerFound(contr.ID())).To(BeFalse())
+		if containerFound(dockerContr.ID()) {
+			Expect(dockerContr.Close()).To(Succeed())
+			Expect(containerFound(dockerContr.ID())).To(BeFalse())
 		}
 	})
 
+	// TODO: exhaustive test of options
 	Describe(".NewContainer", func() {
 		BeforeEach(func() {
 			entrypoint = []string{"bash"}
@@ -72,7 +84,7 @@ var _ = Describe("Container", func() {
 		})
 
 		It("should configure the container", func() {
-			info := containerInfo(contr.ID())
+			info := containerInfo(dockerContr.ID())
 			Expect(info.Name).To(HavePrefix("/some-name-"))
 			Expect(info.Config.Env).To(ContainElement("SOME-KEY=some-value"))
 			Expect(info.Config.Healthcheck.Test).To(Equal([]string{"echo"}))
@@ -84,48 +96,48 @@ var _ = Describe("Container", func() {
 
 	Describe("#Close", func() {
 		It("should remove the container", func() {
-			Expect(containerFound(contr.ID())).To(BeTrue())
-			Expect(contr.Close()).To(Succeed())
-			Expect(containerFound(contr.ID())).To(BeFalse())
+			Expect(containerFound(dockerContr.ID())).To(BeTrue())
+			Expect(dockerContr.Close()).To(Succeed())
+			Expect(containerFound(dockerContr.ID())).To(BeFalse())
 		})
 
 		It("should return an error if already closed", func() {
-			Expect(contr.Close()).To(Succeed())
-			Expect(contr.Close()).To(MatchError(ContainSubstring("No such container")))
+			Expect(dockerContr.Close()).To(Succeed())
+			Expect(dockerContr.Close()).To(MatchError(ContainSubstring("No such container")))
 		})
 	})
 
 	Describe("#CloseAfterStream", func() {
 		It("should configure the provided stream to remove the container when it's closed", func() {
 			closer := &closeTester{}
-			stream := NewStream(closer, 100)
-			Expect(contr.CloseAfterStream(&stream)).To(Succeed())
+			stream := eng.NewStream(closer, 100)
+			Expect(dockerContr.CloseAfterStream(&stream)).To(Succeed())
 
 			Expect(closer.closed).To(BeFalse())
-			Expect(containerFound(contr.ID())).To(BeTrue())
+			Expect(containerFound(dockerContr.ID())).To(BeTrue())
 
 			Expect(stream.Close()).To(Succeed())
 
 			Expect(closer.closed).To(BeTrue())
-			Expect(containerFound(contr.ID())).To(BeFalse())
+			Expect(containerFound(dockerContr.ID())).To(BeFalse())
 		})
 
 		It("should return a container removal error if no other close error occurs", func() {
-			Expect(contr.Close()).To(Succeed())
+			Expect(dockerContr.Close()).To(Succeed())
 
 			closer := &closeTester{}
-			stream := NewStream(closer, 100)
-			Expect(contr.CloseAfterStream(&stream)).To(Succeed())
+			stream := eng.NewStream(closer, 100)
+			Expect(dockerContr.CloseAfterStream(&stream)).To(Succeed())
 
-			Expect(contr.Close()).To(MatchError(ContainSubstring("No such container")))
+			Expect(dockerContr.Close()).To(MatchError(ContainSubstring("No such container")))
 			closer.err = errors.New("some error")
 			Expect(stream.Close()).To(MatchError("some error"))
 		})
 
 		It("should close the container immediately if the stream is empty", func() {
-			stream := NewStream(nil, 100)
-			Expect(contr.CloseAfterStream(&stream)).To(Succeed())
-			Expect(containerFound(contr.ID())).To(BeFalse())
+			stream := eng.NewStream(nil, 100)
+			Expect(dockerContr.CloseAfterStream(&stream)).To(Succeed())
+			Expect(containerFound(dockerContr.ID())).To(BeFalse())
 		})
 	})
 
@@ -135,14 +147,14 @@ var _ = Describe("Container", func() {
 		})
 
 		It("should start the container in the background", func() {
-			Expect(containerRunning(contr.ID())).To(BeFalse())
-			Expect(contr.Background()).To(Succeed())
-			Eventually(try(containerRunning, contr.ID())).Should(BeTrue())
+			Expect(containerRunning(dockerContr.ID())).To(BeFalse())
+			Expect(dockerContr.Background()).To(Succeed())
+			Eventually(try(containerRunning, dockerContr.ID())).Should(BeTrue())
 		})
 
 		It("should return an error when the container cannot be started", func() {
-			Expect(contr.Close()).To(Succeed())
-			err := contr.Background()
+			Expect(dockerContr.Close()).To(Succeed())
+			err := dockerContr.Background()
 			Expect(err).To(MatchError(ContainSubstring("No such container")))
 		})
 	})
@@ -150,6 +162,7 @@ var _ = Describe("Container", func() {
 	Describe("#Start", func() {
 		Context("when signaled to exit", func() {
 			BeforeEach(func() {
+				exit = make(chan struct{})
 				entrypoint = []string{
 					"sh", "-c",
 					`echo some-logs-stdout && \
@@ -161,18 +174,15 @@ var _ = Describe("Container", func() {
 			It("should start the container, stream logs, and return status 128", func() {
 				wait := testutil.Wait(2)
 				defer wait()
-
-				exit := make(chan struct{})
 				defer close(exit)
-				contr.Exit = exit
 
 				logs := gbytes.NewBuffer()
 				go func() {
 					defer wait()
 					defer GinkgoRecover()
-					Expect(contr.Start("some-prefix", logs, nil)).To(Equal(int64(128)))
+					Expect(dockerContr.Start("some-prefix", logs, nil)).To(Equal(int64(128)))
 				}()
-				Eventually(try(containerRunning, contr.ID())).Should(BeTrue())
+				Eventually(try(containerRunning, dockerContr.ID())).Should(BeTrue())
 				Eventually(logs.Contents).Should(ContainSubstring("Z some-logs-stdout"))
 				Eventually(logs.Contents).Should(ContainSubstring("Z some-logs-stderr"))
 			})
@@ -180,6 +190,7 @@ var _ = Describe("Container", func() {
 
 		Context("when signaled to restart", func() {
 			BeforeEach(func() {
+				exit = make(chan struct{})
 				entrypoint = []string{
 					"sh", "-c",
 					`echo some-logs-stdout && \
@@ -191,19 +202,17 @@ var _ = Describe("Container", func() {
 			It("should restart until signaled to exit then return status 128", func() {
 				wait := testutil.Wait(2)
 				defer wait()
-
-				exit := make(chan struct{})
 				defer close(exit)
+
 				restart := make(chan time.Time, 2)
-				contr.Exit = exit
 
 				logs := gbytes.NewBuffer()
 				go func() {
 					defer wait()
 					defer GinkgoRecover()
-					Expect(contr.Start("some-prefix", logs, restart)).To(Equal(int64(128)))
+					Expect(dockerContr.Start("some-prefix", logs, restart)).To(Equal(int64(128)))
 				}()
-				Eventually(try(containerRunning, contr.ID())).Should(BeTrue())
+				Eventually(try(containerRunning, dockerContr.ID())).Should(BeTrue())
 				Eventually(logs).Should(gbytes.Say("Z some-logs-stdout"))
 				restart <- time.Time{}
 				Eventually(logs, "5s").Should(gbytes.Say("Z some-logs-stdout"))
@@ -226,40 +235,38 @@ var _ = Describe("Container", func() {
 
 			It("should start the container, stream logs, and return status 0", func() {
 				logs := gbytes.NewBuffer()
-				Expect(contr.Start("some-prefix", logs, nil)).To(Equal(int64(0)))
-				Expect(containerRunning(contr.ID())).To(BeFalse())
+				Expect(dockerContr.Start("some-prefix", logs, nil)).To(Equal(int64(0)))
+				Expect(containerRunning(dockerContr.ID())).To(BeFalse())
 				Expect(logs.Contents()).To(ContainSubstring("Z some-logs-stdout"))
 				Expect(logs.Contents()).To(ContainSubstring("Z some-logs-stderr"))
 			})
 		})
 
 		It("should return an error when the container cannot be started", func() {
-			Expect(contr.Close()).To(Succeed())
-			_, err := contr.Start("some-prefix", ioutil.Discard, nil)
+			Expect(dockerContr.Close()).To(Succeed())
+			_, err := dockerContr.Start("some-prefix", ioutil.Discard, nil)
 			Expect(err).To(MatchError(ContainSubstring("No such container")))
 		})
 	})
 
 	Describe("#Shell", func() {
 		BeforeEach(func() {
+			exit = make(chan struct{})
 			entrypoint = []string{"sh", "-c", "sleep 5"}
 		})
 
 		It("should connect a local terminal to the container", func() {
 			wait := testutil.Wait(2)
 			defer wait()
-
-			exit := make(chan struct{})
 			defer close(exit)
-			contr.Exit = exit
 
 			go func() {
 				defer wait()
 				defer GinkgoRecover()
-				Expect(contr.Start("some-prefix", ioutil.Discard, nil)).To(Equal(int64(128)))
+				Expect(dockerContr.Start("some-prefix", ioutil.Discard, nil)).To(Equal(int64(128)))
 			}()
 
-			Eventually(try(containerRunning, contr.ID())).Should(BeTrue())
+			Eventually(try(containerRunning, dockerContr.ID())).Should(BeTrue())
 			tty := testTTY(func(in io.Reader, out io.WriteCloser, resize func(h, w uint16) error) error {
 				inBuf := &bytes.Buffer{}
 				go io.Copy(inBuf, in)
@@ -276,79 +283,70 @@ var _ = Describe("Container", func() {
 				Expect(out.Close()).To(Succeed())
 				return nil
 			})
-			Expect(contr.Shell(tty, "sh")).To(Succeed())
+			Expect(dockerContr.Shell(tty, "sh")).To(Succeed())
 		})
 
 		It("should not interfere with container removal when running", func() {
 			wait := testutil.Wait(2)
 			defer wait()
 
-			exit := make(chan struct{})
-			contr.Exit = exit
-
 			go func() {
 				defer wait()
 				defer GinkgoRecover()
-				Expect(contr.Start("some-prefix", ioutil.Discard, nil)).To(Equal(int64(128)))
-				Expect(contr.Close()).To(Succeed())
+				Expect(dockerContr.Start("some-prefix", ioutil.Discard, nil)).To(Equal(int64(128)))
+				Expect(dockerContr.Close()).To(Succeed())
 			}()
-			Eventually(try(containerRunning, contr.ID())).Should(BeTrue())
+			Eventually(try(containerRunning, dockerContr.ID())).Should(BeTrue())
 			tty := testTTY(func(in io.Reader, out io.WriteCloser, resize func(h, w uint16) error) error {
 				return nil
 			})
-			Expect(contr.Shell(tty, "sh")).To(Succeed())
+			Expect(dockerContr.Shell(tty, "sh")).To(Succeed())
 			close(exit)
-			Eventually(try(containerRunning, contr.ID())).Should(BeFalse())
+			Eventually(try(containerRunning, dockerContr.ID())).Should(BeFalse())
 		})
 
 		It("should stop when requested", func() {
 			wait := testutil.Wait(2)
 			defer wait()
 
-			exit := make(chan struct{})
-			contr.Exit = exit
-
 			go func() {
 				defer wait()
 				defer GinkgoRecover()
-				Expect(contr.Start("some-prefix", ioutil.Discard, nil)).To(Equal(int64(128)))
+				Expect(dockerContr.Start("some-prefix", ioutil.Discard, nil)).To(Equal(int64(128)))
 			}()
-			Eventually(try(containerRunning, contr.ID())).Should(BeTrue())
+			Eventually(try(containerRunning, dockerContr.ID())).Should(BeTrue())
 			tty := testTTY(func(in io.Reader, out io.WriteCloser, resize func(h, w uint16) error) error {
 				close(exit)
 				Eventually(func() error { return resize(40, 80) }).Should(MatchError(ContainSubstring("canceled")))
 				return nil
 			})
-			Expect(contr.Shell(tty, "sh")).To(Succeed())
+			Expect(dockerContr.Shell(tty, "sh")).To(Succeed())
 		})
 
 		It("should return an error when the shell cannot be executed", func() {
-			Expect(contr.Close()).To(Succeed())
+			Expect(dockerContr.Close()).To(Succeed())
 			tty := testTTY(func(in io.Reader, out io.WriteCloser, resize func(w, h uint16) error) error {
 				return nil
 			})
-			err := contr.Shell(tty, "sh")
+			err := dockerContr.Shell(tty, "sh")
 			Expect(err).To(MatchError(ContainSubstring("No such container")))
 		})
 
 		It("should return an error when the TTY fails", func() {
 			wait := testutil.Wait(2)
 			defer wait()
-
-			exit := make(chan struct{})
 			defer close(exit)
-			contr.Exit = exit
 
 			go func() {
 				defer wait()
 				defer GinkgoRecover()
-				Expect(contr.Start("some-prefix", ioutil.Discard, nil)).To(Equal(int64(128)))
+				Expect(dockerContr.Start("some-prefix", ioutil.Discard, nil)).To(Equal(int64(128)))
 			}()
-			Eventually(try(containerRunning, contr.ID())).Should(BeTrue())
+			Eventually(try(containerRunning, dockerContr.ID())).Should(BeTrue())
 			tty := testTTY(func(in io.Reader, out io.WriteCloser, resize func(h, w uint16) error) error {
 				return errors.New("some error")
 			})
-			err := contr.Shell(tty, "sh")
+			err := dockerContr.Shell(tty, "sh")
 			Expect(err).To(MatchError("some error"))
 		})
 	})
@@ -356,27 +354,25 @@ var _ = Describe("Container", func() {
 	Describe("#HealthCheck", func() {
 		Context("when the container reaches a healthy state", func() {
 			BeforeEach(func() {
+				exit, check = make(chan struct{}), make(chan time.Time, 1)
 				entrypoint = []string{"tail", "-f", "/dev/null"}
 				healthTest = []string{"CMD", "test", "-f", "/tmp/healthy"}
 			})
 
 			It("should report the container health", func() {
-				exit, interval := make(chan struct{}), make(chan time.Time, 1)
-				contr.Exit, contr.Check = exit, interval
+				healthCheck := dockerContr.HealthCheck()
+				Expect(changesStatus(check, healthCheck, "none")).To(BeTrue())
 
-				check := contr.HealthCheck()
-				Expect(changesStatus(interval, check, "none")).To(BeTrue())
+				Expect(dockerContr.Background()).To(Succeed())
+				Expect(changesStatus(check, healthCheck, "starting")).To(BeTrue())
 
-				Expect(contr.Background()).To(Succeed())
-				Expect(changesStatus(interval, check, "starting")).To(BeTrue())
-
-				empty := NewStream(ioutil.NopCloser(bytes.NewBufferString("\n")), 1)
-				Expect(contr.StreamFileTo(empty, "/tmp/healthy")).To(Succeed())
-				Expect(changesStatus(interval, check, "healthy")).To(BeTrue())
+				empty := eng.NewStream(ioutil.NopCloser(bytes.NewBufferString("\n")), 1)
+				Expect(dockerContr.StreamFileTo(empty, "/tmp/healthy")).To(Succeed())
+				Expect(changesStatus(check, healthCheck, "healthy")).To(BeTrue())
 
 				exit <- struct{}{}
-				interval <- time.Time{}
-				Consistently(check).ShouldNot(Receive())
+				check <- time.Time{}
+				Consistently(healthCheck).ShouldNot(Receive())
 			})
 		})
 	})
@@ -386,13 +382,13 @@ var _ = Describe("Container", func() {
 			ctx := context.Background()
 
 			inBuffer := bytes.NewBufferString("some-data")
-			inStream := NewStream(ioutil.NopCloser(inBuffer), int64(inBuffer.Len()))
-			Expect(contr.StreamFileTo(inStream, "/some-path")).To(Succeed())
+			inStream := eng.NewStream(ioutil.NopCloser(inBuffer), int64(inBuffer.Len()))
+			Expect(dockerContr.StreamFileTo(inStream, "/some-path")).To(Succeed())
 
 			uuid, err := gouuid.NewV4()
 			Expect(err).NotTo(HaveOccurred())
 			ref := fmt.Sprintf("some-ref-%s", uuid)
-			id, err := contr.Commit(ref)
+			id, err := dockerContr.Commit(ref)
 			Expect(err).NotTo(HaveOccurred())
 			defer client.ImageRemove(ctx, id, types.ImageRemoveOptions{
 				Force:         true,
@@ -403,11 +399,11 @@ var _ = Describe("Container", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(info.Config.Hostname).To(Equal("test-container"))
 
-			config := &ContainerConfig{
+			contr2, err := dockerEng.NewContainer(&eng.ContainerConfig{
+				Name:       "some-name",
 				Image:      ref + ":latest",
 				Entrypoint: []string{"bash"},
-			}
-			contr2, err := engine.NewContainer("some-name", config)
+			})
 			Expect(err).NotTo(HaveOccurred())
 			defer contr2.Close()
 
@@ -418,7 +414,7 @@ var _ = Describe("Container", func() {
 		})
 
 		It("should return an error if committing fails", func() {
-			_, err := contr.Commit("$%^some-ref")
+			_, err := dockerContr.Commit("$%^some-ref")
 			Expect(err).To(MatchError("invalid reference format"))
 		})
 	})
@@ -434,10 +430,10 @@ var _ = Describe("Container", func() {
 			Expect(tarIn.Close()).To(Succeed())
 
 			tarCloser := &closeTester{Reader: tarBuffer}
-			Expect(contr.ExtractTo(tarCloser, "/root")).To(Succeed())
+			Expect(dockerContr.ExtractTo(tarCloser, "/root")).To(Succeed())
 			Expect(tarCloser.closed).To(BeFalse())
 
-			tarResult, err := contr.StreamTarFrom("/root")
+			tarResult, err := dockerContr.StreamTarFrom("/root")
 			Expect(err).NotTo(HaveOccurred())
 			defer tarResult.Close()
 			tarOut := tar.NewReader(tarResult)
@@ -462,7 +458,7 @@ var _ = Describe("Container", func() {
 		})
 
 		It("should return an error if copying in fails", func() {
-			err := contr.ExtractTo(nil, "/some-bad-path")
+			err := dockerContr.ExtractTo(nil, "/some-bad-path")
 			Expect(err).To(MatchError(ContainSubstring("some-bad-path")))
 		})
 	})
@@ -478,11 +474,11 @@ var _ = Describe("Container", func() {
 			Expect(tarIn.Close()).To(Succeed())
 
 			tarCloser := &closeTester{Reader: tarBuffer}
-			tarStream := NewStream(tarCloser, int64(tarBuffer.Len()))
-			Expect(contr.StreamTarTo(tarStream, "/root")).To(Succeed())
+			tarStream := eng.NewStream(tarCloser, int64(tarBuffer.Len()))
+			Expect(dockerContr.StreamTarTo(tarStream, "/root")).To(Succeed())
 			Expect(tarCloser.closed).To(BeTrue())
 
-			tarResult, err := contr.StreamTarFrom("/root")
+			tarResult, err := dockerContr.StreamTarFrom("/root")
 			Expect(err).NotTo(HaveOccurred())
 			defer tarResult.Close()
 			tarOut := tar.NewReader(tarResult)
@@ -510,7 +506,7 @@ var _ = Describe("Container", func() {
 
 			Expect(tarResult.Close()).To(Succeed())
 
-			tarResult2, err := contr.StreamTarFrom("/root/")
+			tarResult2, err := dockerContr.StreamTarFrom("/root/")
 			Expect(err).NotTo(HaveOccurred())
 			defer tarResult2.Close()
 			headerDir, err := tar.NewReader(tarResult2).Next()
@@ -519,13 +515,13 @@ var _ = Describe("Container", func() {
 		})
 
 		It("should return an error if copying out fails", func() {
-			_, err := contr.StreamTarFrom("/some-bad-path")
+			_, err := dockerContr.StreamTarFrom("/some-bad-path")
 			Expect(err).To(MatchError(ContainSubstring("some-bad-path")))
 		})
 
 		It("should return an error if copying in fails", func() {
 			errReader := ioutil.NopCloser(iotest.DataErrReader(&bytes.Buffer{}))
-			err := contr.StreamTarTo(NewStream(errReader, 0), "/some-bad-path")
+			err := dockerContr.StreamTarTo(eng.NewStream(errReader, 0), "/some-bad-path")
 			Expect(err).To(MatchError(ContainSubstring("some-bad-path")))
 		})
 	})
@@ -534,12 +530,12 @@ var _ = Describe("Container", func() {
 		It("should copy the stream into the container and close it", func() {
 			inBuffer := bytes.NewBufferString("some-data")
 			inCloseTester := &closeTester{Reader: inBuffer}
-			inStream := NewStream(inCloseTester, int64(inBuffer.Len()))
-			Expect(contr.StreamFileTo(inStream, "/some-path/some-file")).To(Succeed())
+			inStream := eng.NewStream(inCloseTester, int64(inBuffer.Len()))
+			Expect(dockerContr.StreamFileTo(inStream, "/some-path/some-file")).To(Succeed())
 
 			Expect(inCloseTester.closed).To(BeTrue())
 
-			outStream, err := contr.StreamFileFrom("/some-path/some-file")
+			outStream, err := dockerContr.StreamFileFrom("/some-path/some-file")
 			Expect(err).NotTo(HaveOccurred())
 			defer outStream.Close()
 			Expect(ioutil.ReadAll(outStream)).To(Equal([]byte("some-data")))
@@ -550,33 +546,33 @@ var _ = Describe("Container", func() {
 
 		It("should return an error if tarring fails", func() {
 			inBuffer := bytes.NewBufferString("some-data")
-			inStream := NewStream(&closeTester{Reader: inBuffer}, 100)
-			err := contr.StreamFileTo(inStream, "/some-path/some-file")
+			inStream := eng.NewStream(&closeTester{Reader: inBuffer}, 100)
+			err := dockerContr.StreamFileTo(inStream, "/some-path/some-file")
 			Expect(err).To(MatchError("EOF"))
 		})
 
 		It("should return an error if copy to fails", func() {
 			inBuffer := bytes.NewBufferString("some-data")
-			inStream := NewStream(&closeTester{Reader: inBuffer}, int64(inBuffer.Len()))
-			err := contr.StreamFileTo(inStream, "/")
+			inStream := eng.NewStream(&closeTester{Reader: inBuffer}, int64(inBuffer.Len()))
+			err := dockerContr.StreamFileTo(inStream, "/")
 			Expect(err).To(MatchError(ContainSubstring("cannot overwrite")))
 		})
 
 		It("should return an error if closing fails", func() {
 			inBuffer := bytes.NewBufferString("some-data")
 			inCloseTester := &closeTester{Reader: inBuffer, err: errors.New("some error")}
-			inStream := NewStream(inCloseTester, int64(inBuffer.Len()))
-			err := contr.StreamFileTo(inStream, "/some-path/some-file")
+			inStream := eng.NewStream(inCloseTester, int64(inBuffer.Len()))
+			err := dockerContr.StreamFileTo(inStream, "/some-path/some-file")
 			Expect(err).To(MatchError("some error"))
 		})
 
 		It("should return an error if copying from fails", func() {
-			_, err := contr.StreamFileFrom("/some-bad-path")
+			_, err := dockerContr.StreamFileFrom("/some-bad-path")
 			Expect(err).To(MatchError(ContainSubstring("some-bad-path")))
 		})
 
 		It("should return an error if untarring fails", func() {
-			_, err := contr.StreamFileFrom("/root")
+			_, err := dockerContr.StreamFileFrom("/root")
 			Expect(err).To(MatchError("EOF"))
 			// TODO: test closing of tar
 		})
@@ -584,9 +580,9 @@ var _ = Describe("Container", func() {
 
 	Describe("#Mkdir", func() {
 		It("should create a directory in the container", func() {
-			Expect(contr.Mkdir("/root/some-dir")).To(Succeed())
+			Expect(dockerContr.Mkdir("/root/some-dir")).To(Succeed())
 
-			tarResult, err := contr.StreamTarFrom("/root")
+			tarResult, err := dockerContr.StreamTarFrom("/root")
 			Expect(err).NotTo(HaveOccurred())
 			defer tarResult.Close()
 			tarOut := tar.NewReader(tarResult)
@@ -608,7 +604,7 @@ var _ = Describe("Container", func() {
 		})
 
 		It("should return an error if creating the directory fails", func() {
-			err := contr.Mkdir("/some-bad-path/some-dir")
+			err := dockerContr.Mkdir("/some-bad-path/some-dir")
 			Expect(err).To(MatchError(ContainSubstring("some-bad-path")))
 		})
 	})

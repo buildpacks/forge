@@ -1,4 +1,4 @@
-package engine_test
+package docker_test
 
 import (
 	"context"
@@ -10,7 +10,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	. "github.com/sclevine/forge/engine"
+	. "github.com/sclevine/forge/engine/docker"
+	eng "github.com/sclevine/forge/engine"
 )
 
 func TestEngine(t *testing.T) {
@@ -19,7 +20,7 @@ func TestEngine(t *testing.T) {
 }
 
 var (
-	engine *Engine
+	engine eng.Engine
 	client *docker.Client
 )
 

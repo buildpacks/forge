@@ -1,8 +1,6 @@
-package engine
+package docker
 
 import "errors"
-
-// TODO: Refactor Status() and Err() into one method
 
 type progressMsg string
 

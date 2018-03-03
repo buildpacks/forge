@@ -1,4 +1,4 @@
-package engine
+package docker
 
 import (
 	"context"
@@ -8,32 +8,23 @@ import (
 
 	"github.com/docker/docker/api/types"
 	docker "github.com/docker/docker/client"
+
+	eng "github.com/sclevine/forge/engine"
 )
 
-type Image struct {
+type image struct {
 	Exit   <-chan struct{}
 	docker *docker.Client
 }
 
-type RegistryCreds struct {
-	Username      string `json:"username"`
-	Password      string `json:"password"`
-	Email         string `json:"email"`
-	ServerAddress string `json:"serveraddress"`
+func (e *engine) NewImage() eng.Image {
+	return &image{e.Exit, e.docker}
 }
 
-type Progress interface {
-	Status() (string, error)
-}
-
-func (e *Engine) NewImage() *Image {
-	return &Image{e.Exit, e.docker}
-}
-
-func (i *Image) Build(tag string, dockerfile Stream) <-chan Progress {
+func (i *image) Build(tag string, dockerfile eng.Stream) <-chan eng.Progress {
 	defer dockerfile.Close()
 	ctx := context.Background()
-	progress := make(chan Progress, 1)
+	progress := make(chan eng.Progress, 1)
 
 	dockerfileTar, err := tarFile("Dockerfile", dockerfile, dockerfile.Size, 0644)
 	if err != nil {
@@ -56,9 +47,9 @@ func (i *Image) Build(tag string, dockerfile Stream) <-chan Progress {
 	return progress
 }
 
-func (i *Image) Pull(ref string) <-chan Progress {
+func (i *image) Pull(ref string) <-chan eng.Progress {
 	ctx := context.Background()
-	progress := make(chan Progress, 1)
+	progress := make(chan eng.Progress, 1)
 
 	body, err := i.docker.ImagePull(ctx, ref, types.ImagePullOptions{})
 	if err != nil {
@@ -70,9 +61,9 @@ func (i *Image) Pull(ref string) <-chan Progress {
 	return progress
 }
 
-func (i *Image) Push(ref string, creds RegistryCreds) <-chan Progress {
+func (i *image) Push(ref string, creds eng.RegistryCreds) <-chan eng.Progress {
 	ctx := context.Background()
-	progress := make(chan Progress, 1)
+	progress := make(chan eng.Progress, 1)
 
 	credsJSON, err := json.Marshal(creds)
 	if err != nil {
@@ -92,7 +83,7 @@ func (i *Image) Push(ref string, creds RegistryCreds) <-chan Progress {
 	return progress
 }
 
-func (i *Image) Delete(id string) error {
+func (i *image) Delete(id string) error {
 	ctx := context.Background()
 	_, err := i.docker.ImageRemove(ctx, id, types.ImageRemoveOptions{
 		Force:         true,
@@ -101,7 +92,7 @@ func (i *Image) Delete(id string) error {
 	return err
 }
 
-func (i *Image) checkBody(body io.ReadCloser, progress chan<- Progress) {
+func (i *image) checkBody(body io.ReadCloser, progress chan<- eng.Progress) {
 	defer body.Close()
 	defer close(progress)
 
