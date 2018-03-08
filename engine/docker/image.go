@@ -13,12 +13,12 @@ import (
 )
 
 type image struct {
-	Exit   <-chan struct{}
+	exit   <-chan struct{}
 	docker *docker.Client
 }
 
 func (e *engine) NewImage() eng.Image {
-	return &image{e.Exit, e.docker}
+	return &image{e.exit, e.docker}
 }
 
 func (i *image) Build(tag string, dockerfile eng.Stream) <-chan eng.Progress {
@@ -99,7 +99,7 @@ func (i *image) checkBody(body io.ReadCloser, progress chan<- eng.Progress) {
 	decoder := json.NewDecoder(body)
 	for {
 		select {
-		case <-i.Exit:
+		case <-i.exit:
 			progress <- progressErrorString("interrupted")
 			return
 		default:

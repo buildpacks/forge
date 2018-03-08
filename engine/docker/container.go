@@ -36,27 +36,27 @@ func (e *engine) NewContainer(config *eng.ContainerConfig) (eng.Container, error
 	if err != nil {
 		return nil, err
 	}
-	var networkMode cont.NetworkMode
-	hostname := config.Hostname
-	ports := nat.PortMap{
-		"8080/tcp": {{
-			HostIP:   config.HostIP,
-			HostPort: config.HostPort,
-		}},
-	}
-	if config.NetContainer != "" {
-		networkMode = cont.NetworkMode("container:" + config.NetContainer)
-		hostname = ""
-		ports = nil
-	}
 	contConfig := &cont.Config{
-		Hostname:   hostname,
+		Hostname:   config.Hostname,
 		User:       config.User,
 		Image:      config.Image,
 		WorkingDir: config.WorkingDir,
 		Env:        config.Env,
 		Entrypoint: strslice.StrSlice(config.Entrypoint),
 		Cmd:        strslice.StrSlice(config.Cmd),
+	}
+	hostConfig := &cont.HostConfig{
+		Binds:        config.Binds,
+		PortBindings: nat.PortMap{
+			"8080/tcp": {{
+				HostIP:   config.HostIP,
+				HostPort: config.HostPort,
+			}},
+		},
+		Resources: cont.Resources{
+			Memory:    config.Memory,
+			DiskQuota: config.DiskQuota,
+		},
 	}
 	if len(config.Test) > 0 {
 		contConfig.Healthcheck = &cont.HealthConfig{
@@ -67,19 +67,10 @@ func (e *engine) NewContainer(config *eng.ContainerConfig) (eng.Container, error
 			Retries:     config.Retries,
 		}
 	}
-	hostConfig := &cont.HostConfig{
-		Binds:        config.Binds,
-		NetworkMode:  networkMode,
-		PortBindings: ports,
-		Resources: cont.Resources{
-			Memory:    config.Memory,
-			DiskQuota: config.DiskQuota,
-		},
-	}
-	ctx := context.Background()
-	response, err := e.docker.ContainerCreate(ctx, contConfig, hostConfig, nil, fmt.Sprintf("%s-%s", config.Name, uuid))
-	if err != nil {
-		return nil, err
+	if config.NetContainer != "" {
+		contConfig.Hostname = ""
+		hostConfig.PortBindings = nil
+		hostConfig.NetworkMode = cont.NetworkMode("container:" + config.NetContainer)
 	}
 	check := config.Check
 	if check == nil {
@@ -87,7 +78,12 @@ func (e *engine) NewContainer(config *eng.ContainerConfig) (eng.Container, error
 	}
 	exit := config.Exit
 	if exit == nil {
-		exit = e.Exit
+		exit = e.exit
+	}
+	ctx := context.Background()
+	response, err := e.docker.ContainerCreate(ctx, contConfig, hostConfig, nil, fmt.Sprintf("%s-%s", config.Name, uuid))
+	if err != nil {
+		return nil, err
 	}
 	return &container{exit, check, e.docker, response.ID, contConfig}, nil
 }

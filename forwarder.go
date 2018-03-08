@@ -9,16 +9,11 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/strslice"
-	docker "github.com/docker/docker/client"
-
-	"github.com/docker/go-connections/nat"
 	"github.com/sclevine/forge/engine"
 	"github.com/sclevine/forge/internal"
 )
 
-const forwardScript = `
+const forwardScriptTmpl = `
 	{{if .Forwards -}}
 	echo 'Forwarding:{{range .Forwards}} {{.Name}}{{end}}'
 	sshpass -f /tmp/ssh-code ssh -4 -N \
@@ -37,35 +32,29 @@ const forwardScript = `
 
 type Forwarder struct {
 	Logs   io.Writer
-	engine forgeEngine
+	engine Engine
 }
 
 type ForwardConfig struct {
 	AppName          string
 	Stack            string
-	SSHPass          engine.Stream
 	Color            Colorizer
 	Details          *ForwardDetails
 	HostIP, HostPort string
 	Wait             <-chan time.Time
 }
 
-func NewForwarder(client *docker.Client) *Forwarder {
+func NewForwarder(engine Engine) *Forwarder {
 	return &Forwarder{
-		Logs: os.Stdout,
-		engine: &dockerEngine{
-			Docker: client,
-		},
+		Logs:   os.Stdout,
+		engine: engine,
 	}
 }
 
 func (f *Forwarder) Forward(config *ForwardConfig) (health <-chan string, done func(), id string, err error) {
 	output := internal.NewLockWriter(f.Logs)
 
-	netHostConfig := &container.HostConfig{PortBindings: nat.PortMap{
-		"8080/tcp": {{HostIP: config.HostIP, HostPort: config.HostPort}},
-	}}
-	netContr, err := f.engine.NewContainer("network", f.buildNetContainerConfig(config.AppName, config.Stack), netHostConfig)
+	netContr, err := f.engine.NewContainer(f.buildNetConfig(config.AppName, config.Stack, config.HostIP, config.HostPort))
 	if err != nil {
 		return nil, nil, "", err
 	}
@@ -74,18 +63,12 @@ func (f *Forwarder) Forward(config *ForwardConfig) (health <-chan string, done f
 		return nil, nil, "", err
 	}
 
-	networkMode := "container:" + netContr.ID()
-	containerConfig, err := f.buildContainerConfig(config.Details, config.Stack)
+	containerConfig, err := f.buildConfig(config.Details, config.Stack, netContr.ID())
 	if err != nil {
 		return nil, nil, "", err
 	}
-	hostConfig := &container.HostConfig{NetworkMode: container.NetworkMode(networkMode)}
-	contr, err := f.engine.NewContainer("service", containerConfig, hostConfig)
+	contr, err := f.engine.NewContainer(containerConfig)
 	if err != nil {
-		return nil, nil, "", err
-	}
-
-	if err := contr.StreamFileTo(config.SSHPass, "/usr/bin/sshpass"); err != nil {
 		return nil, nil, "", err
 	}
 
@@ -127,33 +110,33 @@ func (f *Forwarder) Forward(config *ForwardConfig) (health <-chan string, done f
 	return contr.HealthCheck(), done, netContr.ID(), nil
 }
 
-func (f *Forwarder) buildContainerConfig(forwardConfig *ForwardDetails, stack string) (*container.Config, error) {
+func (f *Forwarder) buildConfig(forward *ForwardDetails, stack, netID string) (*engine.ContainerConfig, error) {
 	scriptBuf := &bytes.Buffer{}
-	tmpl := template.Must(template.New("").Parse(forwardScript))
-	if err := tmpl.Execute(scriptBuf, forwardConfig); err != nil {
+	tmpl := template.Must(template.New("").Parse(forwardScriptTmpl))
+	if err := tmpl.Execute(scriptBuf, forward); err != nil {
 		return nil, err
 	}
 
-	return &container.Config{
-		Healthcheck: &container.HealthConfig{
-			Test:     []string{"CMD", "test", "-f", "/tmp/healthy"},
-			Interval: time.Second,
-			Retries:  30,
-		},
-		Image: stack,
-		Entrypoint: strslice.StrSlice{
-			"/bin/bash", "-c", scriptBuf.String(),
-		},
+	return &engine.ContainerConfig{
+		Name:         "service",
+		Image:        stack,
+		Entrypoint:   []string{"/bin/bash", "-c", scriptBuf.String()},
+		NetContainer: netID,
+		Test:         []string{"CMD", "test", "-f", "/tmp/healthy"},
+		Interval:     time.Second,
+		Retries:      30,
+		Exit:         make(<-chan struct{}),
 	}, nil
 }
 
-func (f *Forwarder) buildNetContainerConfig(name string, stack string) *container.Config {
-	return &container.Config{
-		Hostname:     name,
-		ExposedPorts: nat.PortSet{"8080/tcp": {}},
-		Image:        stack,
-		Entrypoint: strslice.StrSlice{
-			"tail", "-f", "/dev/null",
-		},
+func (f *Forwarder) buildNetConfig(name, stack, hostIP, hostPort string) *engine.ContainerConfig {
+	return &engine.ContainerConfig{
+		Name:       "network",
+		Hostname:   name,
+		Image:      stack,
+		Entrypoint: []string{"tail", "-f", "/dev/null"},
+		HostIP:     hostIP,
+		HostPort:   hostPort,
+		Exit:       make(<-chan struct{}),
 	}
 }

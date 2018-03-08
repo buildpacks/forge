@@ -1,9 +1,7 @@
 package forge_test
 
 import (
-	"bytes"
 	"sort"
-	"time"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
@@ -14,9 +12,9 @@ import (
 	"github.com/sclevine/forge/mocks"
 )
 
-var _ = Describe("Runner", func() {
+var _ = Describe("Exporter", func() {
 	var (
-		runner        *Runner
+		exporter      *Exporter
 		mockCtrl      *gomock.Controller
 		mockLoader    *mocks.MockLoader
 		mockEngine    *mocks.MockEngine
@@ -31,27 +29,23 @@ var _ = Describe("Runner", func() {
 		mockImage = mocks.NewMockImage(mockCtrl)
 		mockContainer = mocks.NewMockContainer(mockCtrl)
 
-		runner = NewRunner(mockEngine)
-		runner.Logs = bytes.NewBufferString("some-logs")
-		runner.Loader = mockLoader
+		exporter = NewExporter(mockEngine)
+		exporter.Loader = mockLoader
 	})
 
 	AfterEach(func() {
 		mockCtrl.Finish()
 	})
 
-	Describe("#Run", func() {
-		It("should run the droplet in a container using the launcher", func() {
+	Describe("#Export", func() {
+		It("should load the provided droplet into a Docker image with the lifecycle", func() {
 			progress := make(chan engine.Progress, 1)
 			progress <- mockProgress{Value: "some-progress"}
 			close(progress)
-			config := &RunConfig{
+			config := &ExportConfig{
 				Droplet: engine.NewStream(mockReadCloser{Value: "some-droplet"}, 100),
 				Stack:   "some-stack",
-				AppDir:  "some-app-dir",
-				RSync:   true,
-				Restart: make(<-chan time.Time),
-				Color:   percentColor,
+				Ref:     "some-ref",
 				AppConfig: &AppConfig{
 					Name:      "some-name",
 					Command:   "some-command",
@@ -73,11 +67,6 @@ var _ = Describe("Runner", func() {
 						}},
 					},
 				},
-				NetworkConfig: &NetworkConfig{
-					HostIP:      "some-ip",
-					HostPort:    "400",
-					ContainerID: "some-net-container",
-				},
 			}
 			mockEngine.EXPECT().NewImage().Return(mockImage)
 			gomock.InOrder(
@@ -87,39 +76,25 @@ var _ = Describe("Runner", func() {
 					Expect(config.Hostname).To(Equal("some-name"))
 					sort.Strings(config.Env)
 					Expect(config.Env).To(Equal([]string{
-						"PACK_APP_DISK=1024",
-						"PACK_APP_MEM=512",
 						"PACK_APP_NAME=some-name",
 						"TEST_ENV_KEY=test-env-value",
 						"TEST_RUNNING_ENV_KEY=test-running-env-value",
-						"VCAP_SERVICES=" + `{"some-type":[{"name":"some-name","label":"","tags":null,"plan":"","credentials":null,"syslog_drain_url":null,"provider":null,"volume_mounts":null}]}`,
 					}))
 					Expect(config.Image).To(Equal("some-stack"))
 					Expect(config.WorkingDir).To(Equal("/home/vcap/app"))
-					Expect(config.Entrypoint).To(HaveLen(4))
-					Expect(config.Entrypoint[0]).To(Equal("/bin/bash"))
-					Expect(config.Entrypoint[1]).To(Equal("-c"))
-					Expect(config.Entrypoint[2]).To(ContainSubstring("launcher"))
-					Expect(config.Entrypoint[3]).To(Equal("some-command"))
-					Expect(config.Binds).To(Equal([]string{"some-app-dir:/tmp/local"}))
-					Expect(config.NetContainer).To(Equal("some-net-container"))
-					Expect(config.HostIP).To(Equal("some-ip"))
-					Expect(config.HostPort).To(Equal("400"))
-					Expect(config.Memory).To(Equal(int64(512 * 1024 * 1024)))
-					Expect(config.DiskQuota).To(Equal(int64(1024 * 1024 * 1024)))
+					Expect(config.Entrypoint).To(Equal([]string{"/packs/launcher", "some-command"}))
 				}).Return(mockContainer, nil),
 			)
-
 			gomock.InOrder(
 				mockContainer.EXPECT().StreamTarTo(config.Droplet, "/home/vcap"),
-				mockContainer.EXPECT().Start("[some-name] % ", runner.Logs, config.Restart).Return(int64(100), nil),
+				mockContainer.EXPECT().Commit("some-ref").Return("some-image-id", nil),
 				mockContainer.EXPECT().Close(),
 			)
-
-			Expect(runner.Run(config)).To(Equal(int64(100)))
+			Expect(exporter.Export(config)).To(Equal("some-image-id"))
 			Expect(mockLoader.Progress).To(Receive(Equal(mockProgress{Value: "some-progress"})))
 		})
 
-		// TODO: test bind mounts, rsync, units, shell
+		// TODO: test with custom start command
+		// TODO: test with empty app dir / without rsync
 	})
 })

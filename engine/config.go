@@ -19,8 +19,8 @@ type ContainerConfig struct {
 	NetContainer string
 	HostIP       string
 	HostPort     string
-	Memory       int64
-	DiskQuota    int64
+	Memory       int64 // in bytes
+	DiskQuota    int64 // in bytes
 
 	// Healthcheck
 	Test        []string

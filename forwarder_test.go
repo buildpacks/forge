@@ -6,17 +6,13 @@ import (
 	"io/ioutil"
 	"time"
 
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/strslice"
-	"github.com/docker/go-connections/nat"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
 	"github.com/onsi/gomega/gbytes"
+
 	. "github.com/sclevine/forge"
 	"github.com/sclevine/forge/engine"
-	"github.com/sclevine/forge/fixtures"
 	"github.com/sclevine/forge/mocks"
 )
 
@@ -37,7 +33,7 @@ var _ = Describe("Forwarder", func() {
 		mockContainer = mocks.NewMockContainer(mockCtrl)
 		logs = gbytes.NewBuffer()
 
-		forwarder = NewTestForwarder(mockEngine)
+		forwarder = NewForwarder(mockEngine)
 		forwarder.Logs = logs
 	})
 
@@ -53,7 +49,6 @@ var _ = Describe("Forwarder", func() {
 			config := &ForwardConfig{
 				AppName: "some-name",
 				Stack:   "some-stack",
-				SSHPass: engine.NewStream(mockReadCloser{Value: "some-sshpass"}, 300),
 				Color:   percentColor,
 				Details: &ForwardDetails{
 					Host: "some-ssh-host",
@@ -80,47 +75,40 @@ var _ = Describe("Forwarder", func() {
 				HostPort: "400",
 				Wait:     waiter,
 			}
-			mockEngine.EXPECT().NewContainer("network", gomock.Any(), gomock.Any()).Do(func(_ string, config *container.Config, hostConfig *container.HostConfig) {
+			mockEngine.EXPECT().NewContainer(gomock.Any()).Do(func(config *engine.ContainerConfig) {
+				Expect(config.Name).To(Equal("network"))
 				Expect(config.Hostname).To(Equal("some-name"))
-				Expect(config.User).To(Equal("vcap"))
-				Expect(config.ExposedPorts).To(HaveLen(1))
-				_, hasPort := config.ExposedPorts["8080/tcp"]
-				Expect(hasPort).To(BeTrue())
 				Expect(config.Image).To(Equal("some-stack"))
-				Expect(config.Entrypoint).To(Equal(strslice.StrSlice{
-					"tail", "-f", "/dev/null",
-				}))
-				Expect(hostConfig.PortBindings).To(HaveLen(1))
-				Expect(hostConfig.PortBindings["8080/tcp"]).To(Equal([]nat.PortBinding{{HostIP: "some-ip", HostPort: "400"}}))
-				Expect(hostConfig.NetworkMode).To(BeEmpty())
+				Expect(config.Entrypoint).To(Equal([]string{"tail", "-f", "/dev/null"}))
+				Expect(config.HostIP).To(Equal("some-ip"))
+				Expect(config.HostPort).To(Equal("400"))
+				Expect(config.Exit).NotTo(BeNil())
 			}).Return(mockNetContainer, nil)
 
-			background := mockNetContainer.EXPECT().Background()
-			mockNetContainer.EXPECT().ID().Return("some-id").AnyTimes()
+			mockNetContainer.EXPECT().ID().Return("some-net-container").AnyTimes()
+			gomock.InOrder(
+				mockNetContainer.EXPECT().Background(),
+				mockEngine.EXPECT().NewContainer(gomock.Any()).Do(func(config *engine.ContainerConfig) {
+					Expect(config.Name).To(Equal("service"))
+					Expect(config.Image).To(Equal("some-stack"))
+					Expect(config.Entrypoint).To(HaveLen(3))
+					Expect(config.Entrypoint[0]).To(Equal("/bin/bash"))
+					Expect(config.Entrypoint[1]).To(Equal("-c"))
+					Expect(config.Entrypoint[2]).To(ContainSubstring("sshpass"))
+					Expect(config.NetContainer).To(Equal("some-net-container"))
+					Expect(config.Test).To(Equal([]string{"CMD", "test", "-f", "/tmp/healthy"}))
+					Expect(config.Interval).To(Equal(time.Second))
+					Expect(config.Retries).To(Equal(30))
+					Expect(config.Exit).NotTo(BeNil())
+				}).Return(mockContainer, nil),
+			)
 
-			mockEngine.EXPECT().NewContainer("service", gomock.Any(), gomock.Any()).Do(func(_ string, config *container.Config, hostConfig *container.HostConfig) {
-				Expect(config.User).To(Equal("vcap"))
-				Expect(config.ExposedPorts).To(BeEmpty())
-				Expect(config.Healthcheck).To(Equal(&container.HealthConfig{
-					Test:     []string{"CMD", "test", "-f", "/tmp/healthy"},
-					Interval: time.Second,
-					Retries:  30,
-				}))
-				Expect(config.Image).To(Equal("some-stack"))
-				Expect(config.Entrypoint).To(Equal(strslice.StrSlice{
-					"/bin/bash", "-c", fixtures.ForwardScript(),
-				}))
-				Expect(hostConfig.PortBindings).To(BeEmpty())
-				Expect(hostConfig.NetworkMode).To(Equal(container.NetworkMode("container:some-id")))
-			}).Return(mockContainer, nil).After(background)
-
-			mockContainer.EXPECT().StreamFileTo(config.SSHPass, "/usr/bin/sshpass")
 			mockContainer.EXPECT().HealthCheck().Return(mockHealth)
 
 			health, done, id, err := forwarder.Forward(config)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(health).To(Equal(mockHealth))
-			Expect(id).To(Equal("some-id"))
+			Expect(id).To(Equal("some-net-container"))
 
 			gomock.InOrder(
 				mockContainer.EXPECT().StreamFileTo(gomock.Any(), "/tmp/ssh-code").Do(func(stream engine.Stream, _ string) {

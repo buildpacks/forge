@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"sort"
 
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/strslice"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -34,7 +32,7 @@ var _ = Describe("Stager", func() {
 		mockContainer = mocks.NewMockContainer(mockCtrl)
 		logs = bytes.NewBufferString("some logs\n")
 
-		stager = NewTestStager(mockEngine, mockImage)
+		stager = NewStager(mockEngine)
 		stager.Logs = logs
 		stager.Loader = mockLoader
 	})
@@ -59,15 +57,12 @@ var _ = Describe("Stager", func() {
 			config := &StageConfig{
 				AppTar:     bytes.NewBufferString("some-app-tar"),
 				Cache:      localCache,
-				CacheEmpty: false,
 				BuildpackZips: map[string]engine.Stream{
 					"some-name-one": buildpackZipStream1,
 					"some-name-two": buildpackZipStream2,
 				},
-				Stack:  "some-stack",
-				AppDir: "some-app-dir",
-				RSync:  true,
-				Color:  percentColor,
+				Stack:       "some-stack",
+				Color:       percentColor,
 				AppConfig: &AppConfig{
 					Name:      "some-name",
 					Buildpack: "some-buildpack",
@@ -93,12 +88,12 @@ var _ = Describe("Stager", func() {
 					},
 				},
 			}
-
+			mockEngine.EXPECT().NewImage().Return(mockImage)
 			gomock.InOrder(
 				mockImage.EXPECT().Pull("some-stack").Return(progress),
-				mockEngine.EXPECT().NewContainer("some-name-staging", gomock.Any(), gomock.Any()).Do(func(_ string, config *container.Config, hostConfig *container.HostConfig) {
+				mockEngine.EXPECT().NewContainer(gomock.Any()).Do(func(config *engine.ContainerConfig) {
+					Expect(config.Name).To(Equal("some-name-staging"))
 					Expect(config.Hostname).To(Equal("some-name"))
-					Expect(config.ExposedPorts).To(HaveLen(0))
 					sort.Strings(config.Env)
 					Expect(config.Env).To(Equal([]string{
 						"MEMORY_LIMIT=1024m",
@@ -109,25 +104,18 @@ var _ = Describe("Stager", func() {
 					}))
 					Expect(config.Image).To(Equal("some-stack"))
 					Expect(config.WorkingDir).To(Equal("/tmp/app"))
-					Expect(config.Cmd).To(Equal(strslice.StrSlice{
-						"-skipDetect=true", "-buildpackOrder", "some-buildpack-one,some-buildpack-two",
-					}))
+					Expect(config.Cmd).To(Equal([]string{"-skipDetect=true", "-buildpackOrder", "some-buildpack-one,some-buildpack-two"}))
 				}).Return(mockContainer, nil),
 			)
 
-			buildpackCopy1 := mockContainer.EXPECT().StreamFileTo(buildpackZipStream1, "/buildpacks/some-name-one.zip")
-			buildpackCopy2 := mockContainer.EXPECT().StreamFileTo(buildpackZipStream2, "/buildpacks/some-name-two.zip")
-			appExtract := mockContainer.EXPECT().ExtractTo(config.AppTar, "/tmp/app")
-			cacheExtract := mockContainer.EXPECT().ExtractTo(localCache, "/cache")
-
 			gomock.InOrder(
 				mockContainer.EXPECT().Start("[some-name] % ", logs, nil).Return(int64(0), nil).
-					After(buildpackCopy1).
-					After(buildpackCopy2).
-					After(appExtract).
-					After(cacheExtract),
-				mockContainer.EXPECT().StreamFileFrom("/tmp/output-cache").Return(remoteCacheStream, nil),
-				mockContainer.EXPECT().StreamFileFrom("/tmp/droplet").Return(dropletStream, nil),
+					After(mockContainer.EXPECT().StreamFileTo(buildpackZipStream1, "/buildpacks/some-name-one.zip")).
+					After(mockContainer.EXPECT().StreamFileTo(buildpackZipStream2, "/buildpacks/some-name-two.zip")).
+					After(mockContainer.EXPECT().ExtractTo(config.AppTar, "/tmp/app")).
+					After(mockContainer.EXPECT().ExtractTo(localCache, "/tmp/cache")),
+				mockContainer.EXPECT().StreamFileFrom("/cache/cache.tgz").Return(remoteCacheStream, nil),
+				mockContainer.EXPECT().StreamFileFrom("/out/droplet.tgz").Return(dropletStream, nil),
 				mockContainer.EXPECT().CloseAfterStream(&dropletStream),
 			)
 
@@ -140,8 +128,8 @@ var _ = Describe("Stager", func() {
 		})
 
 		// TODO: test unavailable buildpack versions
-		// TODO: test single-buildpack case
+		// TODO: test empty cache
+		// TODO: test single-buildpack case, detection, force detection
 		// TODO: test non-zero command return status
-		// TODO: test no app dir case
 	})
 })

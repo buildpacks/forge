@@ -1,7 +1,6 @@
 package forge
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,23 +8,17 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"text/template"
 	"time"
 
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/strslice"
-	docker "github.com/docker/docker/client"
-	"github.com/docker/go-connections/nat"
-
 	"github.com/sclevine/forge/engine"
-	"github.com/sclevine/forge/term"
+	"github.com/sclevine/forge/engine/docker/term"
 )
 
 const runScript = `
-	set -e
-	{{if .RSync -}}
-	rsync -a /tmp/local/ /home/vcap/app/
-	{{end -}}
+	set -eo pipefail
+	if [[ -d /tmp/local ]]; then
+		rsync -a /tmp/local/ /home/vcap/app/
+    fi
 	exec /packs/launcher "$1"
 `
 
@@ -67,23 +60,19 @@ func (r *Runner) Run(config *RunConfig) (status int64, err error) {
 		return 0, err
 	}
 
-	containerConfig, err := r.buildContainerConfig(config.AppConfig, config.Stack, config.RSync, config.NetworkConfig.ContainerID != "")
-	if err != nil {
-		return 0, err
-	}
 	remoteDir := "/home/vcap/app"
 	if config.RSync {
 		remoteDir = "/tmp/local"
 	}
-	var memory int64
-	if config.AppConfig.Memory != "" {
-		memory, err = toMegabytes(config.AppConfig.Memory)
-		if err != nil {
-			return 0, err
-		}
+	var binds []string
+	if config.AppDir != "" && remoteDir != "" {
+		binds = []string{config.AppDir + ":" + remoteDir}
 	}
-	hostConfig := r.buildHostConfig(config.NetworkConfig, memory, config.AppDir, remoteDir)
-	contr, err := r.engine.NewContainer(config.AppConfig.Name, containerConfig, hostConfig)
+	containerConfig, err := r.buildConfig(config.AppConfig, config.NetworkConfig, binds, config.Stack)
+	if err != nil {
+		return 0, err
+	}
+	contr, err := r.engine.NewContainer(containerConfig)
 	if err != nil {
 		return 0, err
 	}
@@ -102,111 +91,57 @@ func (r *Runner) Run(config *RunConfig) (status int64, err error) {
 	return 0, contr.Shell(r.TTY, "/lifecycle/shell")
 }
 
-type ExportConfig struct {
-	Droplet   engine.Stream
-	Stack     string
-	Ref       string
-	AppConfig *AppConfig
-}
-
-// TODO: use build instead of commit
-func (r *Runner) Export(config *ExportConfig) (imageID string, err error) {
-	if err := r.pull(config.Stack); err != nil {
-		return "", err
-	}
-
-	appConfig := config.AppConfig
-	appConfig.DiskQuota = ""
-	appConfig.Memory = ""
-	containerConfig, err := r.buildContainerConfig(appConfig, config.Stack, false, false)
-	if err != nil {
-		return "", err
-	}
-	contr, err := r.engine.NewContainer(config.AppConfig.Name, containerConfig, nil)
-	if err != nil {
-		return "", err
-	}
-	defer contr.Close()
-
-	if err := contr.StreamTarTo(config.Droplet, "/home/vcap"); err != nil {
-		return "", err
-	}
-	return contr.Commit(config.Ref)
-}
-
 func (r *Runner) pull(stack string) error {
 	return r.Loader.Loading("Image", r.engine.NewImage().Pull(stack))
 }
 
-func (r *Runner) buildContainerConfig(config *AppConfig, stack string, rsync, networked bool) (*container.Config, error) {
+func (r *Runner) buildConfig(app *AppConfig, net *NetworkConfig, binds []string, stack string) (*engine.ContainerConfig, error) {
+	var disk, mem int64
+	var err error
 	env := map[string]string{}
 
-	if config.Name != "" {
-		env["PACK_APP_NAME"] = config.Name
+	if app.Name != "" {
+		env["PACK_APP_NAME"] = app.Name
 	}
 
-	if config.DiskQuota != "" {
-		disk, err := toMegabytes(config.DiskQuota)
+	if app.DiskQuota != "" {
+		disk, err = toMegabytes(app.DiskQuota)
 		if err != nil {
 			return nil, err
 		}
 		env["PACK_APP_DISK"] = fmt.Sprintf("%d", disk)
 	}
-	if config.Memory != "" {
-		mem, err := toMegabytes(config.Memory)
+	if app.Memory != "" {
+		mem, err = toMegabytes(app.Memory)
 		if err != nil {
 			return nil, err
 		}
 		env["PACK_APP_MEM"] = fmt.Sprintf("%d", mem)
 	}
 
-	if config.Services != nil {
-		vcapServices, err := json.Marshal(config.Services)
+	if app.Services != nil {
+		vcapServices, err := json.Marshal(app.Services)
 		if err != nil {
 			return nil, err
 		}
 		env["VCAP_SERVICES"] = string(vcapServices)
 	}
 
-	options := struct{ RSync bool }{rsync}
-	scriptBuf := &bytes.Buffer{}
-	tmpl := template.Must(template.New("").Parse(runScript))
-	if err := tmpl.Execute(scriptBuf, options); err != nil {
-		return nil, err
-	}
-
-	hostname := config.Name
-	if networked {
-		hostname = ""
-	}
-	return &container.Config{
-		Hostname:   hostname,
-		Env:        mapToEnv(mergeMaps(env, config.RunningEnv, config.Env)),
+	return &engine.ContainerConfig{
+		Name:       app.Name,
+		Hostname:   app.Name,
+		Env:        mapToEnv(mergeMaps(env, app.RunningEnv, app.Env)),
 		Image:      stack,
 		WorkingDir: "/home/vcap/app",
-		Entrypoint: strslice.StrSlice{
-			"/bin/bash", "-c", scriptBuf.String(), config.Command,
-		},
-	}, nil
-}
+		Entrypoint: []string{"/bin/bash", "-c", runScript, app.Command},
 
-func (*Runner) buildHostConfig(netConfig *NetworkConfig, memory int64, appDir, remoteDir string) *container.HostConfig {
-	config := &container.HostConfig{
-		Resources: container.Resources{
-			Memory: memory * 1024 * 1024,
-		},
-	}
-	if netConfig.ContainerID == "" {
-		config.PortBindings = nat.PortMap{
-			"8080/tcp": {{HostIP: netConfig.HostIP, HostPort: netConfig.HostPort}},
-		}
-	} else {
-		config.NetworkMode = container.NetworkMode("container:" + netConfig.ContainerID)
-	}
-	if appDir != "" && remoteDir != "" {
-		config.Binds = []string{appDir + ":" + remoteDir}
-	}
-	return config
+		Binds:        binds,
+		NetContainer: net.ContainerID,
+		HostIP:       net.HostIP,
+		HostPort:     net.HostPort,
+		Memory:       mem * 1024 * 1024,
+		DiskQuota:    disk * 1024 * 1024,
+	}, nil
 }
 
 func toMegabytes(s string) (int64, error) {

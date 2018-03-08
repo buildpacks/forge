@@ -11,13 +11,13 @@ import (
 )
 
 type engine struct {
-	Exit   <-chan struct{}
+	exit   <-chan struct{}
 	docker *docker.Client
 }
 
-func New() (eng.Engine, error) {
+func New(exit <-chan struct{}) (eng.Engine, error) {
 	client, err := docker.NewEnvClient()
-	return &engine{docker: client}, err
+	return &engine{exit, client}, err
 }
 
 func (e *engine) Close() error {
