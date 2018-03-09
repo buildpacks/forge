@@ -3,7 +3,7 @@
 set -e
 
 cli_version=6.34.1
-cli_pkg=github.com/cloudfoundry/cli
+cli_pkg=code.cloudfoundry.org/cli
 cli_url=https://github.com/cloudfoundry/cli/archive/v${cli_version}.tar.gz
 
 cd $(dirname "${BASH_SOURCE[0]}")/..
