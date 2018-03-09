@@ -11,3 +11,7 @@ func Tar(dir string, files []string) (io.ReadCloser, error) {
 		IncludeFiles: files,
 	})
 }
+
+func Copy(src, dst string) error {
+	return archive.CopyResource(src, dst, false)
+}
