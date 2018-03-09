@@ -1,0 +1,15 @@
+#!/bin/bash
+
+set -e
+
+docker_pkg=github.com/docker/docker
+docker_url=https://github.com/docker/docker-ce/archive/v17.12.0-ce.tar.gz
+
+cd $(dirname "${BASH_SOURCE[0]}")/..
+
+tmp_dir=$(mktemp -d)
+curl -sSL "$docker_url" | tar -C "${tmp_dir}" -xz --strip-components=3 docker-ce-17.12.0-ce/components/engine
+rm -rf vendor
+mv "${tmp_dir}/vendor" .
+mkdir -p "$(dirname "vendor/${docker_pkg}")"
+mv "${tmp_dir}" "vendor/${docker_pkg}"

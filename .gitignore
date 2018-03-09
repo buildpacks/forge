@@ -1,5 +1,4 @@
 /vendor
-/engine/docker/vendor
 .DS_Store
 .idea
 *.droplet
