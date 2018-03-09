@@ -55,14 +55,14 @@ var _ = Describe("Stager", func() {
 			close(progress)
 
 			config := &StageConfig{
-				AppTar:     bytes.NewBufferString("some-app-tar"),
-				Cache:      localCache,
+				AppTar: bytes.NewBufferString("some-app-tar"),
+				Cache:  localCache,
 				BuildpackZips: map[string]engine.Stream{
 					"some-name-one": buildpackZipStream1,
 					"some-name-two": buildpackZipStream2,
 				},
-				Stack:       "some-stack",
-				Color:       percentColor,
+				Stack: "some-stack",
+				Color: percentColor,
 				AppConfig: &AppConfig{
 					Name:      "some-name",
 					Buildpack: "some-buildpack",
@@ -112,8 +112,8 @@ var _ = Describe("Stager", func() {
 				mockContainer.EXPECT().Start("[some-name] % ", logs, nil).Return(int64(0), nil).
 					After(mockContainer.EXPECT().StreamFileTo(buildpackZipStream1, "/buildpacks/some-name-one.zip")).
 					After(mockContainer.EXPECT().StreamFileTo(buildpackZipStream2, "/buildpacks/some-name-two.zip")).
-					After(mockContainer.EXPECT().ExtractTo(config.AppTar, "/tmp/app")).
-					After(mockContainer.EXPECT().ExtractTo(localCache, "/tmp/cache")),
+					After(mockContainer.EXPECT().UploadTarTo(config.AppTar, "/tmp/app")).
+					After(mockContainer.EXPECT().UploadTarTo(localCache, "/tmp/cache")),
 				mockContainer.EXPECT().StreamFileFrom("/cache/cache.tgz").Return(remoteCacheStream, nil),
 				mockContainer.EXPECT().StreamFileFrom("/out/droplet.tgz").Return(dropletStream, nil),
 				mockContainer.EXPECT().CloseAfterStream(&dropletStream),

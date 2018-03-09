@@ -84,16 +84,16 @@ func (mr *MockContainerMockRecorder) Commit(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockContainer)(nil).Commit), arg0)
 }
 
-// ExtractTo mocks base method
-func (m *MockContainer) ExtractTo(arg0 io.Reader, arg1 string) error {
-	ret := m.ctrl.Call(m, "ExtractTo", arg0, arg1)
+// UploadTarTo mocks base method
+func (m *MockContainer) UploadTarTo(arg0 io.Reader, arg1 string) error {
+	ret := m.ctrl.Call(m, "UploadTarTo", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// ExtractTo indicates an expected call of ExtractTo
-func (mr *MockContainerMockRecorder) ExtractTo(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExtractTo", reflect.TypeOf((*MockContainer)(nil).ExtractTo), arg0, arg1)
+// UploadTarTo indicates an expected call of UploadTarTo
+func (mr *MockContainerMockRecorder) UploadTarTo(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UploadTarTo", reflect.TypeOf((*MockContainer)(nil).UploadTarTo), arg0, arg1)
 }
 
 // HealthCheck mocks base method

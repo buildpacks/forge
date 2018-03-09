@@ -55,17 +55,18 @@ func (s *Stager) Stage(config *StageConfig) (droplet engine.Stream, err error) {
 		return engine.Stream{}, err
 	}
 	defer contr.CloseAfterStream(&droplet)
+
 	for name, zip := range config.BuildpackZips {
 		if err := contr.StreamFileTo(zip, fmt.Sprintf("/buildpacks/%s.zip", name)); err != nil {
 			return engine.Stream{}, err
 		}
 	}
 
-	if err := contr.ExtractTo(config.AppTar, "/tmp/app"); err != nil {
+	if err := contr.UploadTarTo(config.AppTar, "/tmp/app"); err != nil {
 		return engine.Stream{}, err
 	}
 	if !config.CacheEmpty {
-		if err := contr.ExtractTo(config.Cache, "/tmp/cache"); err != nil {
+		if err := contr.UploadTarTo(config.Cache, "/tmp/cache"); err != nil {
 			return engine.Stream{}, err
 		}
 	}

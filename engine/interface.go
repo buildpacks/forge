@@ -20,7 +20,7 @@ type Container interface {
 	Shell(tty TTY, shell ...string) (err error)
 	HealthCheck() <-chan string
 	Commit(ref string) (imageID string, err error)
-	ExtractTo(tar io.Reader, path string) error
+	UploadTarTo(tar io.Reader, path string) error
 	StreamFileTo(stream Stream, path string) error
 	StreamTarTo(stream Stream, path string) error
 	StreamFileFrom(path string) (Stream, error)

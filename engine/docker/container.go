@@ -46,7 +46,7 @@ func (e *engine) NewContainer(config *eng.ContainerConfig) (eng.Container, error
 		Cmd:        strslice.StrSlice(config.Cmd),
 	}
 	hostConfig := &cont.HostConfig{
-		Binds:        config.Binds,
+		Binds: config.Binds,
 		PortBindings: nat.PortMap{
 			"8080/tcp": {{
 				HostIP:   config.HostIP,
@@ -302,7 +302,7 @@ func (c *container) Commit(ref string) (imageID string, err error) {
 	return response.ID, err
 }
 
-func (c *container) ExtractTo(tar io.Reader, path string) error {
+func (c *container) UploadTarTo(tar io.Reader, path string) error {
 	ctx := context.Background()
 	return c.docker.CopyToContainer(ctx, c.id, path, onlyReader(tar), types.CopyToContainerOptions{})
 }
@@ -319,14 +319,14 @@ func (c *container) StreamFileTo(stream eng.Stream, path string) error {
 	if err != nil {
 		return err
 	}
-	if err := c.ExtractTo(tar, "/"); err != nil {
+	if err := c.UploadTarTo(tar, "/"); err != nil {
 		return err
 	}
 	return stream.Close()
 }
 
 func (c *container) StreamTarTo(stream eng.Stream, path string) error {
-	if err := c.ExtractTo(stream, path); err != nil {
+	if err := c.UploadTarTo(stream, path); err != nil {
 		return err
 	}
 	return stream.Close()

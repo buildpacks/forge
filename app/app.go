@@ -8,7 +8,8 @@ import (
 	"regexp"
 
 	"code.cloudfoundry.org/cli/cf/appfiles"
-	"github.com/docker/docker/pkg/archive"
+
+	"github.com/sclevine/forge/engine/docker/archive"
 )
 
 func Tar(path string) (app io.ReadCloser, err error) {
@@ -50,9 +51,7 @@ func Tar(path string) (app io.ReadCloser, err error) {
 	if err != nil {
 		return nil, err
 	}
-	return archive.TarWithOptions(appDir, &archive.TarOptions{
-		IncludeFiles: files,
-	})
+	return archive.Tar(appDir, files)
 }
 
 type closeWrapper struct {

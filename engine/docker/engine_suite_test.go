@@ -10,8 +10,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	. "github.com/sclevine/forge/engine/docker"
 	eng "github.com/sclevine/forge/engine"
+	. "github.com/sclevine/forge/engine/docker"
 )
 
 func TestEngine(t *testing.T) {
@@ -38,7 +38,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 }, func(_ []byte) {
 	var err error
 
-	engine, err = New()
+	engine, err = New(nil)
 	Expect(err).NotTo(HaveOccurred())
 
 	client, err = docker.NewEnvClient()
