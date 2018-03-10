@@ -56,8 +56,8 @@ func (s *Stager) Stage(config *StageConfig) (droplet engine.Stream, err error) {
 	}
 	defer contr.CloseAfterStream(&droplet)
 
-	for name, zip := range config.BuildpackZips {
-		if err := contr.StreamFileTo(zip, fmt.Sprintf("/buildpacks/%s.zip", name)); err != nil {
+	for checksum, zip := range config.BuildpackZips {
+		if err := contr.StreamFileTo(zip, fmt.Sprintf("/var/lib/buildpacks/%s", checksum)); err != nil {
 			return engine.Stream{}, err
 		}
 	}
