@@ -65,7 +65,11 @@ func (s *Stager) Stage(config *StageConfig) (droplet engine.Stream, err error) {
 	if err := contr.UploadTarTo(config.AppTar, "/tmp/app"); err != nil {
 		return engine.Stream{}, err
 	}
+
 	if !config.CacheEmpty {
+		if err := contr.Mkdir("/tmp/cache"); err != nil {
+			return engine.Stream{}, err
+		}
 		if err := contr.UploadTarTo(config.Cache, "/tmp/cache"); err != nil {
 			return engine.Stream{}, err
 		}

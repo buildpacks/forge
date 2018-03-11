@@ -113,7 +113,8 @@ var _ = Describe("Stager", func() {
 					After(mockContainer.EXPECT().StreamFileTo(buildpackZipStream1, "/var/lib/buildpacks/some-checksum-one")).
 					After(mockContainer.EXPECT().StreamFileTo(buildpackZipStream2, "/var/lib/buildpacks/some-checksum-two")).
 					After(mockContainer.EXPECT().UploadTarTo(config.AppTar, "/tmp/app")).
-					After(mockContainer.EXPECT().UploadTarTo(localCache, "/tmp/cache")),
+					After(mockContainer.EXPECT().UploadTarTo(localCache, "/tmp/cache").
+						After(mockContainer.EXPECT().Mkdir("/tmp/cache"))),
 				mockContainer.EXPECT().StreamFileFrom("/cache/cache.tgz").Return(remoteCacheStream, nil),
 				mockContainer.EXPECT().StreamFileFrom("/out/droplet.tgz").Return(dropletStream, nil),
 				mockContainer.EXPECT().CloseAfterStream(&dropletStream),
