@@ -49,7 +49,6 @@ var _ = Describe("Runner", func() {
 				Droplet: engine.NewStream(mockReadCloser{Value: "some-droplet"}, 100),
 				Stack:   "some-stack",
 				AppDir:  "some-app-dir",
-				RSync:   true,
 				Restart: make(<-chan time.Time),
 				Color:   percentColor,
 				AppConfig: &AppConfig{
@@ -120,6 +119,6 @@ var _ = Describe("Runner", func() {
 			Expect(mockLoader.Progress).To(Receive(Equal(mockProgress{Value: "some-progress"})))
 		})
 
-		// TODO: test bind mounts, rsync, units, shell
+		// TODO: test without bind mounts, units, shell
 	})
 })

@@ -17,7 +17,7 @@ import (
 const runScript = `
 	set -eo pipefail
 	if [[ -d /tmp/local ]]; then
-		rsync -a /tmp/local/ /home/vcap/app/
+		rsync -a --delete /tmp/local/ /home/vcap/app
     fi
 	exec /packs/launcher "$1"
 `
@@ -35,7 +35,6 @@ type RunConfig struct {
 	Droplet       engine.Stream
 	Stack         string
 	AppDir        string
-	RSync         bool
 	Shell         bool
 	Restart       <-chan time.Time
 	Color         Colorizer
@@ -60,13 +59,9 @@ func (r *Runner) Run(config *RunConfig) (status int64, err error) {
 		return 0, err
 	}
 
-	remoteDir := "/home/vcap/app"
-	if config.RSync {
-		remoteDir = "/tmp/local"
-	}
 	var binds []string
-	if config.AppDir != "" && remoteDir != "" {
-		binds = []string{config.AppDir + ":" + remoteDir}
+	if config.AppDir != "" {
+		binds = []string{config.AppDir + ":/tmp/local"}
 	}
 	containerConfig, err := r.buildConfig(config.AppConfig, config.NetworkConfig, binds, config.Stack)
 	if err != nil {
@@ -88,7 +83,7 @@ func (r *Runner) Run(config *RunConfig) (status int64, err error) {
 	if err := contr.Background(); err != nil {
 		return 0, err
 	}
-	return 0, contr.Shell(r.TTY, "/lifecycle/shell")
+	return 0, contr.Shell(r.TTY, "/packs/shell")
 }
 
 func (r *Runner) pull(stack string) error {

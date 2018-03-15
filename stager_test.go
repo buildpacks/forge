@@ -110,8 +110,8 @@ var _ = Describe("Stager", func() {
 
 			gomock.InOrder(
 				mockContainer.EXPECT().Start("[some-name] % ", logs, nil).Return(int64(0), nil).
-					After(mockContainer.EXPECT().StreamFileTo(buildpackZipStream1, "/var/lib/buildpacks/some-checksum-one")).
-					After(mockContainer.EXPECT().StreamFileTo(buildpackZipStream2, "/var/lib/buildpacks/some-checksum-two")).
+					After(mockContainer.EXPECT().StreamFileTo(buildpackZipStream1, "/buildpacks/some-checksum-one.zip")).
+					After(mockContainer.EXPECT().StreamFileTo(buildpackZipStream2, "/buildpacks/some-checksum-two.zip")).
 					After(mockContainer.EXPECT().UploadTarTo(config.AppTar, "/tmp/app")).
 					After(mockContainer.EXPECT().UploadTarTo(localCache, "/tmp/cache").
 						After(mockContainer.EXPECT().Mkdir("/tmp/cache"))),
