@@ -1,8 +1,10 @@
 package term
 
 import (
+	"errors"
 	"io"
 	"os"
+	"time"
 
 	"github.com/docker/docker/pkg/term"
 )
@@ -16,17 +18,20 @@ func (t *TTY) Run(remoteIn io.Reader, remoteOut io.WriteCloser, resize func(h, w
 	inFd, inIsTerm := term.GetFdInfo(t.In)
 	outFd, outIsTerm := term.GetFdInfo(t.Out)
 
-	if inIsTerm {
-		size := winsize(outFd)
+	if !inIsTerm {
+		return errors.New("stdin must be an interactive terminal")
+	}
+
+	size := winsize(outFd)
+	if err := resize(size.Height, size.Width); err != nil {
+		time.Sleep(time.Second)
+		size = winsize(outFd)
 		if err := resize(size.Height, size.Width); err != nil {
 			return err
 		}
-
-		var state *term.State
-		state, err := term.SetRawTerminal(inFd)
-		if err == nil {
-			defer term.RestoreTerminal(inFd, state)
-		}
+	}
+	if state, err := term.SetRawTerminal(inFd); err == nil {
+		defer term.RestoreTerminal(inFd, state)
 	}
 
 	go func() {
