@@ -62,5 +62,6 @@ func (e *Exporter) buildConfig(app *AppConfig, stack string) (*engine.ContainerC
 		Image:      stack,
 		WorkingDir: "/home/vcap/app",
 		Entrypoint: []string{"/packs/launcher", app.Command},
+		SkipProxy:  true,
 	}, nil
 }

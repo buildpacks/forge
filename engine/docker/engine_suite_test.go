@@ -38,7 +38,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 }, func(_ []byte) {
 	var err error
 
-	engine, err = New(nil)
+	engine, err = New(&eng.EngineConfig{})
 	Expect(err).NotTo(HaveOccurred())
 
 	client, err = docker.NewEnvClient()

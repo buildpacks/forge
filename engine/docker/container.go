@@ -41,7 +41,7 @@ func (e *engine) NewContainer(config *eng.ContainerConfig) (eng.Container, error
 		User:       config.User,
 		Image:      config.Image,
 		WorkingDir: config.WorkingDir,
-		Env:        config.Env,
+		Env:        append(e.proxyEnv(config), config.Env...),
 		Entrypoint: strslice.StrSlice(config.Entrypoint),
 		Cmd:        strslice.StrSlice(config.Cmd),
 	}

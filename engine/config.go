@@ -2,6 +2,18 @@ package engine
 
 import "time"
 
+type EngineConfig struct {
+	Proxy ProxyConfig
+	Exit  <-chan struct{}
+}
+
+type ProxyConfig struct {
+	HTTPProxy   string
+	HTTPSProxy  string
+	NoProxy     string
+	UseRemotely bool
+}
+
 type ContainerConfig struct {
 	Name string
 
@@ -13,6 +25,7 @@ type ContainerConfig struct {
 	Env        []string
 	Entrypoint []string
 	Cmd        []string
+	SkipProxy  bool
 
 	// External
 	Binds        []string
