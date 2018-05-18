@@ -26,6 +26,7 @@ type StageConfig struct {
 	ForceDetect   bool
 	Color         Colorizer
 	AppConfig     *AppConfig
+	OutputFile    string
 }
 
 type ReadResetWriter interface {
@@ -90,7 +91,12 @@ func (s *Stager) Stage(config *StageConfig) (droplet engine.Stream, err error) {
 		return engine.Stream{}, err
 	}
 
-	return contr.StreamFileFrom("/out/droplet.tgz")
+	outputFile := config.OutputFile
+	if outputFile == "" && len(outputFile) == 0 {
+		outputFile = "droplet.tgz"
+	}
+
+	return contr.StreamFileFrom(fmt.Sprintf("/out/%s", outputFile))
 }
 
 func (s *Stager) buildConfig(app *AppConfig, stack string, forceDetect bool) (*engine.ContainerConfig, error) {

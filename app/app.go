@@ -75,6 +75,7 @@ func appFiles(path string) ([]string, error) {
 		switch {
 		case
 			regexp.MustCompile(`^.+\.droplet$`).MatchString(filename),
+			regexp.MustCompile(`^.+\.slug`).MatchString(filename),
 			regexp.MustCompile(`^\..+\.cache$`).MatchString(filename):
 			return nil
 		}
