@@ -40,6 +40,8 @@ type RunConfig struct {
 	Color         Colorizer
 	AppConfig     *AppConfig
 	NetworkConfig *NetworkConfig
+	SkipStackPull bool
+	HomeDir       string
 }
 
 func NewRunner(engine Engine) *Runner {
@@ -55,8 +57,10 @@ func NewRunner(engine Engine) *Runner {
 }
 
 func (r *Runner) Run(config *RunConfig) (status int64, err error) {
-	if err := r.pull(config.Stack); err != nil {
-		return 0, err
+	if config.SkipStackPull == false {
+		if err := r.pull(config.Stack); err != nil {
+			return 0, err
+		}
 	}
 
 	var binds []string
@@ -73,7 +77,11 @@ func (r *Runner) Run(config *RunConfig) (status int64, err error) {
 	}
 	defer contr.Close()
 
-	if err := contr.StreamTarTo(config.Droplet, "/home/vcap"); err != nil {
+	homeDir := config.HomeDir
+	if homeDir == "" {
+		homeDir = "/home/vcap"
+	}
+	if err := contr.StreamTarTo(config.Droplet, homeDir); err != nil {
 		return 0, err
 	}
 	color := config.Color("[%s] ", config.AppConfig.Name)
