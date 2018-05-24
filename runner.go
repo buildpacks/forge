@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"path/filepath"
 
 	"github.com/sclevine/forge/engine"
 	"github.com/sclevine/forge/engine/docker/term"
@@ -41,7 +42,7 @@ type RunConfig struct {
 	AppConfig     *AppConfig
 	NetworkConfig *NetworkConfig
 	SkipStackPull bool
-	HomeDir       string
+	RootDir       string
 }
 
 func NewRunner(engine Engine) *Runner {
@@ -63,11 +64,18 @@ func (r *Runner) Run(config *RunConfig) (status int64, err error) {
 		}
 	}
 
+	rootDir := config.RootDir
+	if rootDir == "" {
+		rootDir = "/home/vcap"
+	}
+
+	homeDir := filepath.Join(rootDir, "app")
+
 	var binds []string
 	if config.AppDir != "" {
 		binds = []string{config.AppDir + ":/tmp/local"}
 	}
-	containerConfig, err := r.buildConfig(config.AppConfig, config.NetworkConfig, binds, config.Stack)
+	containerConfig, err := r.buildConfig(config.AppConfig, config.NetworkConfig, binds, config.Stack, homeDir)
 	if err != nil {
 		return 0, err
 	}
@@ -77,11 +85,7 @@ func (r *Runner) Run(config *RunConfig) (status int64, err error) {
 	}
 	defer contr.Close()
 
-	homeDir := config.HomeDir
-	if homeDir == "" {
-		homeDir = "/home/vcap"
-	}
-	if err := contr.StreamTarTo(config.Droplet, homeDir); err != nil {
+	if err := contr.StreamTarTo(config.Droplet, rootDir); err != nil {
 		return 0, err
 	}
 	color := config.Color("[%s] ", config.AppConfig.Name)
@@ -98,7 +102,7 @@ func (r *Runner) pull(stack string) error {
 	return r.Loader.Loading("Image", r.engine.NewImage().Pull(stack))
 }
 
-func (r *Runner) buildConfig(app *AppConfig, net *NetworkConfig, binds []string, stack string) (*engine.ContainerConfig, error) {
+func (r *Runner) buildConfig(app *AppConfig, net *NetworkConfig, binds []string, stack string, workDir string) (*engine.ContainerConfig, error) {
 	var disk, mem int64
 	var err error
 	env := map[string]string{}
@@ -135,7 +139,7 @@ func (r *Runner) buildConfig(app *AppConfig, net *NetworkConfig, binds []string,
 		Hostname:   app.Name,
 		Env:        mapToEnv(mergeMaps(env, app.RunningEnv, app.Env)),
 		Image:      stack,
-		WorkingDir: "/home/vcap/app",
+		WorkingDir: workDir,
 		Entrypoint: []string{"/bin/bash", "-c", runScript, app.Command},
 
 		Binds:        binds,
