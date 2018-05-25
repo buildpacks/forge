@@ -26,6 +26,7 @@ type ContainerConfig struct {
 	Entrypoint []string
 	Cmd        []string
 	SkipProxy  bool
+	Port	   string
 
 	// External
 	Binds        []string

@@ -45,10 +45,20 @@ func (e *engine) NewContainer(config *eng.ContainerConfig) (eng.Container, error
 		Entrypoint: strslice.StrSlice(config.Entrypoint),
 		Cmd:        strslice.StrSlice(config.Cmd),
 	}
+
+	var port nat.Port
+	if config.Port == "" {
+		port = "8080/tcp"
+	} else {
+		port, err = nat.NewPort("tcp", config.Port);
+		if err != nil {
+			return nil, err
+		}
+	}
 	hostConfig := &cont.HostConfig{
 		Binds: config.Binds,
 		PortBindings: nat.PortMap{
-			"8080/tcp": {{
+			port: {{
 				HostIP:   config.HostIP,
 				HostPort: config.HostPort,
 			}},

@@ -141,6 +141,7 @@ func (r *Runner) buildConfig(app *AppConfig, net *NetworkConfig, binds []string,
 		Image:      stack,
 		WorkingDir: workDir,
 		Entrypoint: []string{"/bin/bash", "-c", runScript, app.Command},
+		Port:       net.Port,
 
 		Binds:        binds,
 		NetContainer: net.ContainerID,
