@@ -27,6 +27,7 @@ type StageConfig struct {
 	Color         Colorizer
 	AppConfig     *AppConfig
 	OutputFile    string
+	SkipStackPull bool
 }
 
 type ReadResetWriter interface {
@@ -43,8 +44,10 @@ func NewStager(engine Engine) *Stager {
 }
 
 func (s *Stager) Stage(config *StageConfig) (droplet engine.Stream, err error) {
-	if err := s.pull(config.Stack); err != nil {
-		return engine.Stream{}, err
+	if config.SkipStackPull == false {
+		if err := s.pull(config.Stack); err != nil {
+			return engine.Stream{}, err
+		}
 	}
 
 	containerConfig, err := s.buildConfig(config.AppConfig, config.Stack, config.ForceDetect)
