@@ -25,6 +25,7 @@ type AppConfig struct {
 
 type NetworkConfig struct {
 	ContainerID string
+	Port        string
 	HostIP      string
 	HostPort    string
 }
