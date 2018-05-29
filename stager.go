@@ -26,8 +26,7 @@ type StageConfig struct {
 	ForceDetect   bool
 	Color         Colorizer
 	AppConfig     *AppConfig
-	OutputFile    string
-	SkipStackPull bool
+	OutputPath    string
 }
 
 type ReadResetWriter interface {
@@ -44,12 +43,6 @@ func NewStager(engine Engine) *Stager {
 }
 
 func (s *Stager) Stage(config *StageConfig) (droplet engine.Stream, err error) {
-	if config.SkipStackPull == false {
-		if err := s.pull(config.Stack); err != nil {
-			return engine.Stream{}, err
-		}
-	}
-
 	containerConfig, err := s.buildConfig(config.AppConfig, config.Stack, config.ForceDetect)
 	if err != nil {
 		return engine.Stream{}, err
@@ -94,12 +87,7 @@ func (s *Stager) Stage(config *StageConfig) (droplet engine.Stream, err error) {
 		return engine.Stream{}, err
 	}
 
-	outputFile := config.OutputFile
-	if outputFile == "" && len(outputFile) == 0 {
-		outputFile = "droplet.tgz"
-	}
-
-	return contr.StreamFileFrom(fmt.Sprintf("/out/%s", outputFile))
+	return contr.StreamFileFrom(config.OutputPath)
 }
 
 func (s *Stager) buildConfig(app *AppConfig, stack string, forceDetect bool) (*engine.ContainerConfig, error) {
@@ -175,8 +163,4 @@ func streamOut(contr engine.Container, out io.Writer, path string) error {
 		return err
 	}
 	return stream.Out(out)
-}
-
-func (s *Stager) pull(stack string) error {
-	return s.Loader.Loading("Image", s.engine.NewImage().Pull(stack))
 }

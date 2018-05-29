@@ -41,8 +41,8 @@ type RunConfig struct {
 	Color         Colorizer
 	AppConfig     *AppConfig
 	NetworkConfig *NetworkConfig
-	SkipStackPull bool
-	RootDir       string
+	RootPath      string
+	HomePath      string
 }
 
 func NewRunner(engine Engine) *Runner {
@@ -58,18 +58,17 @@ func NewRunner(engine Engine) *Runner {
 }
 
 func (r *Runner) Run(config *RunConfig) (status int64, err error) {
-	if config.SkipStackPull == false {
-		if err := r.pull(config.Stack); err != nil {
-			return 0, err
-		}
+	rootPath := config.RootPath
+	if rootPath == "" {
+		rootPath = "/home/vcap"
 	}
 
-	rootDir := config.RootDir
-	if rootDir == "" {
-		rootDir = "/home/vcap"
+	homePath := config.HomePath
+	if homePath == "" {
+		homePath = "app"
 	}
 
-	homeDir := filepath.Join(rootDir, "app")
+	homeDir := filepath.Join(rootPath, homePath)
 
 	var binds []string
 	if config.AppDir != "" {
@@ -85,7 +84,7 @@ func (r *Runner) Run(config *RunConfig) (status int64, err error) {
 	}
 	defer contr.Close()
 
-	if err := contr.StreamTarTo(config.Droplet, rootDir); err != nil {
+	if err := contr.StreamTarTo(config.Droplet, rootPath); err != nil {
 		return 0, err
 	}
 	color := config.Color("[%s] ", config.AppConfig.Name)
@@ -96,10 +95,6 @@ func (r *Runner) Run(config *RunConfig) (status int64, err error) {
 		return 0, err
 	}
 	return 0, contr.Shell(r.TTY, "/packs/shell")
-}
-
-func (r *Runner) pull(stack string) error {
-	return r.Loader.Loading("Image", r.engine.NewImage().Pull(stack))
 }
 
 func (r *Runner) buildConfig(app *AppConfig, net *NetworkConfig, binds []string, stack string, workDir string) (*engine.ContainerConfig, error) {
