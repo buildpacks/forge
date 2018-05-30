@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"path/filepath"
 
 	"github.com/sclevine/forge/engine"
 	"github.com/sclevine/forge/engine/docker/term"
@@ -68,7 +67,9 @@ func (r *Runner) Run(config *RunConfig) (status int64, err error) {
 		homePath = "app"
 	}
 
-	homeDir := filepath.Join(rootPath, homePath)
+	// We don't want to use `filepath.Join` because it will be platform specific and we need this work on Linux
+	// But `filepath.Join` will give us something like `\app`.
+	homeDir := fmt.Sprintf("/%s/%s", rootPath, homePath)
 
 	var binds []string
 	if config.AppDir != "" {
