@@ -25,10 +25,6 @@ type ExportConfig struct {
 
 // TODO: use build instead of commit
 func (e *Exporter) Export(config *ExportConfig) (imageID string, err error) {
-	if err := e.pull(config.Stack); err != nil {
-		return "", err
-	}
-
 	containerConfig, err := e.buildConfig(config.AppConfig, config.Stack)
 	if err != nil {
 		return "", err
@@ -43,10 +39,6 @@ func (e *Exporter) Export(config *ExportConfig) (imageID string, err error) {
 		return "", err
 	}
 	return contr.Commit(config.Ref)
-}
-
-func (e *Exporter) pull(stack string) error {
-	return e.Loader.Loading("Image", e.engine.NewImage().Pull(stack))
 }
 
 func (e *Exporter) buildConfig(app *AppConfig, stack string) (*engine.ContainerConfig, error) {
