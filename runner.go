@@ -69,13 +69,13 @@ func (r *Runner) Run(config *RunConfig) (status int64, err error) {
 
 	// We don't want to use `filepath.Join` because it will be platform specific and we need this work on Linux
 	// But `filepath.Join` will give us something like `\app`.
-	homeDir := fmt.Sprintf("/%s/%s", rootPath, homePath)
+	workingDir := fmt.Sprintf("/%s/%s", rootPath, homePath)
 
 	var binds []string
 	if config.AppDir != "" {
 		binds = []string{config.AppDir + ":/tmp/local"}
 	}
-	containerConfig, err := r.buildConfig(config.AppConfig, config.NetworkConfig, binds, config.Stack, homeDir)
+	containerConfig, err := r.buildConfig(config.AppConfig, config.NetworkConfig, binds, config.Stack, workingDir)
 	if err != nil {
 		return 0, err
 	}
