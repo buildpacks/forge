@@ -36,15 +36,9 @@ func (e *engine) NewContainer(config *eng.ContainerConfig) (eng.Container, error
 	if err != nil {
 		return nil, err
 	}
-
-	var port nat.Port
-	if config.Port == "" {
-		port = "8080/tcp"
-	} else {
-		port, err = nat.NewPort("tcp", config.Port);
-		if err != nil {
-			return nil, err
-		}
+	port, err := nat.NewPort("tcp", config.Port)
+	if err != nil {
+		return nil, err
 	}
 
 	contConfig := &cont.Config{
@@ -55,9 +49,7 @@ func (e *engine) NewContainer(config *eng.ContainerConfig) (eng.Container, error
 		Env:          append(e.proxyEnv(config), config.Env...),
 		Entrypoint:   strslice.StrSlice(config.Entrypoint),
 		Cmd:          strslice.StrSlice(config.Cmd),
-		ExposedPorts: nat.PortSet{
-			port: struct{}{},
-		},
+		ExposedPorts: nat.PortSet{port: struct{}{}},
 	}
 	hostConfig := &cont.HostConfig{
 		Binds: config.Binds,

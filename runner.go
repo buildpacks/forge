@@ -27,7 +27,6 @@ var bytesPattern = regexp.MustCompile(`(?i)^(-?\d+)([KMGT])B?$`)
 type Runner struct {
 	Logs   io.Writer
 	TTY    engine.TTY
-	Loader Loader
 	engine Engine
 }
 
@@ -35,13 +34,13 @@ type RunConfig struct {
 	Droplet       engine.Stream
 	Stack         string
 	AppDir        string
+	OutputDir     string
+	WorkingDir    string
 	Shell         bool
 	Restart       <-chan time.Time
 	Color         Colorizer
 	AppConfig     *AppConfig
 	NetworkConfig *NetworkConfig
-	RootPath      string
-	HomePath      string
 }
 
 func NewRunner(engine Engine) *Runner {
@@ -51,31 +50,16 @@ func NewRunner(engine Engine) *Runner {
 			In:  os.Stdin,
 			Out: os.Stdout,
 		},
-		Loader: noopLoader{},
 		engine: engine,
 	}
 }
 
 func (r *Runner) Run(config *RunConfig) (status int64, err error) {
-	rootPath := config.RootPath
-	if rootPath == "" {
-		rootPath = "/home/vcap"
-	}
-
-	homePath := config.HomePath
-	if homePath == "" {
-		homePath = "app"
-	}
-
-	// We don't want to use `filepath.Join` because it will be platform specific and we need this work on Linux
-	// But `filepath.Join` will give us something like `\app`.
-	workingDir := fmt.Sprintf("/%s/%s", rootPath, homePath)
-
 	var binds []string
 	if config.AppDir != "" {
 		binds = []string{config.AppDir + ":/tmp/local"}
 	}
-	containerConfig, err := r.buildConfig(config.AppConfig, config.NetworkConfig, binds, config.Stack, workingDir)
+	containerConfig, err := r.buildConfig(config.AppConfig, config.NetworkConfig, binds, config.WorkingDir, config.Stack)
 	if err != nil {
 		return 0, err
 	}
@@ -85,7 +69,7 @@ func (r *Runner) Run(config *RunConfig) (status int64, err error) {
 	}
 	defer contr.Close()
 
-	if err := contr.StreamTarTo(config.Droplet, rootPath); err != nil {
+	if err := contr.StreamTarTo(config.Droplet, config.OutputDir); err != nil {
 		return 0, err
 	}
 	color := config.Color("[%s] ", config.AppConfig.Name)
@@ -98,7 +82,7 @@ func (r *Runner) Run(config *RunConfig) (status int64, err error) {
 	return 0, contr.Shell(r.TTY, "/packs/shell")
 }
 
-func (r *Runner) buildConfig(app *AppConfig, net *NetworkConfig, binds []string, stack string, workDir string) (*engine.ContainerConfig, error) {
+func (r *Runner) buildConfig(app *AppConfig, net *NetworkConfig, binds []string, workingDir, stack string) (*engine.ContainerConfig, error) {
 	var disk, mem int64
 	var err error
 	env := map[string]string{}
@@ -135,9 +119,9 @@ func (r *Runner) buildConfig(app *AppConfig, net *NetworkConfig, binds []string,
 		Hostname:   app.Name,
 		Env:        mapToEnv(mergeMaps(env, app.RunningEnv, app.Env)),
 		Image:      stack,
-		WorkingDir: workDir,
+		WorkingDir: workingDir,
 		Entrypoint: []string{"/bin/bash", "-c", runScript, app.Command},
-		Port:       net.Port,
+		Port:       net.ContainerPort,
 
 		Binds:        binds,
 		NetContainer: net.ContainerID,

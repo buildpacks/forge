@@ -13,7 +13,6 @@ import (
 
 type Stager struct {
 	Logs   io.Writer
-	Loader Loader
 	engine Engine
 }
 
@@ -23,10 +22,10 @@ type StageConfig struct {
 	CacheEmpty    bool
 	BuildpackZips map[string]engine.Stream
 	Stack         string
+	OutputPath    string
 	ForceDetect   bool
 	Color         Colorizer
 	AppConfig     *AppConfig
-	OutputPath    string
 }
 
 type ReadResetWriter interface {
@@ -37,7 +36,6 @@ type ReadResetWriter interface {
 func NewStager(engine Engine) *Stager {
 	return &Stager{
 		Logs:   os.Stdout,
-		Loader: noopLoader{},
 		engine: engine,
 	}
 }

@@ -22,11 +22,11 @@ type ContainerConfig struct {
 	User       string
 	Image      string
 	WorkingDir string
+	Port       string
 	Env        []string
 	Entrypoint []string
 	Cmd        []string
 	SkipProxy  bool
-	Port	   string
 
 	// External
 	Binds        []string

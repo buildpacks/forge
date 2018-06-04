@@ -2,47 +2,28 @@ package forge
 
 import (
 	"github.com/sclevine/forge/engine"
-	"fmt"
 )
 
 type Exporter struct {
-	Loader Loader
 	engine Engine
 }
 
 func NewExporter(engine Engine) *Exporter {
-	return &Exporter{
-		Loader: noopLoader{},
-		engine: engine,
-	}
+	return &Exporter{engine: engine}
 }
 
 type ExportConfig struct {
-	Droplet   engine.Stream
-	Stack     string
-	Ref       string
-	RootPath  string
-	HomePath  string
-	AppConfig *AppConfig
+	Droplet    engine.Stream
+	Stack      string
+	Ref        string
+	OutputDir  string
+	WorkingDir string
+	AppConfig  *AppConfig
 }
 
 // TODO: use build instead of commit
 func (e *Exporter) Export(config *ExportConfig) (imageID string, err error) {
-	rootPath := config.RootPath
-	if rootPath == "" {
-		rootPath = "/home/vcap"
-	}
-
-	homePath := config.HomePath
-	if homePath == "" {
-		homePath = "app"
-	}
-
-	// We don't want to use `filepath.Join` because it will be platform specific and we need this work on Linux
-	// But `filepath.Join` will give us something like `\app`.
-	workingDir := fmt.Sprintf("/%s/%s", rootPath, homePath)
-
-	containerConfig, err := e.buildConfig(config.AppConfig, workingDir, config.Stack)
+	containerConfig, err := e.buildConfig(config.AppConfig, config.WorkingDir, config.Stack)
 	if err != nil {
 		return "", err
 	}
@@ -52,7 +33,7 @@ func (e *Exporter) Export(config *ExportConfig) (imageID string, err error) {
 	}
 	defer contr.Close()
 
-	if err := contr.StreamTarTo(config.Droplet, rootPath); err != nil {
+	if err := contr.StreamTarTo(config.Droplet, config.OutputDir); err != nil {
 		return "", err
 	}
 	return contr.Commit(config.Ref)

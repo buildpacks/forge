@@ -32,7 +32,6 @@ const forwardScriptTmpl = `
 
 type Forwarder struct {
 	Logs   io.Writer
-	Loader Loader
 	engine Engine
 }
 
@@ -48,15 +47,11 @@ type ForwardConfig struct {
 func NewForwarder(engine Engine) *Forwarder {
 	return &Forwarder{
 		Logs:   os.Stdout,
-		Loader: noopLoader{},
 		engine: engine,
 	}
 }
 
 func (f *Forwarder) Forward(config *ForwardConfig) (health <-chan string, done func(), id string, err error) {
-	if err := f.pull(config.Stack); err != nil {
-		return nil, nil, "", err
-	}
 	output := internal.NewLockWriter(f.Logs)
 
 	netContr, err := f.engine.NewContainer(f.buildNetConfig(config.AppName, config.Stack, config.HostIP, config.HostPort))
@@ -113,10 +108,6 @@ func (f *Forwarder) Forward(config *ForwardConfig) (health <-chan string, done f
 		output.Disable()
 	}
 	return contr.HealthCheck(), done, netContr.ID(), nil
-}
-
-func (f *Forwarder) pull(stack string) error {
-	return f.Loader.Loading("Image", f.engine.NewImage().Pull(stack))
 }
 
 func (f *Forwarder) buildConfig(forward *ForwardDetails, stack, netID string) (*engine.ContainerConfig, error) {
