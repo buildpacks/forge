@@ -4,7 +4,7 @@
 [![Windows Build Status](https://ci.appveyor.com/api/projects/status/some-id/branch/master?svg=true)](https://ci.appveyor.com/project/sclevine/forge/branch/master)
 [![GoDoc](https://godoc.org/github.com/sclevine/forge?status.svg)](https://godoc.org/github.com/sclevine/forge)
 
-Forge is a library for creating and running Cloud Foundry apps in Docker.
+Forge is a library for creating and running buildpack apps in Docker.
 
 ## Notes
 
