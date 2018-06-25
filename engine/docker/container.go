@@ -36,33 +36,35 @@ func (e *engine) NewContainer(config *eng.ContainerConfig) (eng.Container, error
 	if err != nil {
 		return nil, err
 	}
-	port, err := nat.NewPort("tcp", config.Port)
-	if err != nil {
-		return nil, err
-	}
 
 	contConfig := &cont.Config{
-		Hostname:     config.Hostname,
-		User:         config.User,
-		Image:        config.Image,
-		WorkingDir:   config.WorkingDir,
-		Env:          append(e.proxyEnv(config), config.Env...),
-		Entrypoint:   strslice.StrSlice(config.Entrypoint),
-		Cmd:          strslice.StrSlice(config.Cmd),
-		ExposedPorts: nat.PortSet{port: struct{}{}},
+		Hostname:   config.Hostname,
+		User:       config.User,
+		Image:      config.Image,
+		WorkingDir: config.WorkingDir,
+		Env:        append(e.proxyEnv(config), config.Env...),
+		Entrypoint: strslice.StrSlice(config.Entrypoint),
+		Cmd:        strslice.StrSlice(config.Cmd),
 	}
 	hostConfig := &cont.HostConfig{
 		Binds: config.Binds,
-		PortBindings: nat.PortMap{
-			port: {{
-				HostIP:   config.HostIP,
-				HostPort: config.HostPort,
-			}},
-		},
 		Resources: cont.Resources{
 			Memory:    config.Memory,
 			DiskQuota: config.DiskQuota,
 		},
+	}
+	if config.Port != "" {
+		port, err := nat.NewPort("tcp", config.Port)
+		if err != nil {
+			return nil, err
+		}
+		contConfig.ExposedPorts = nat.PortSet{port: struct{}{}}
+		hostConfig.PortBindings = nat.PortMap{
+			port: {{
+				HostIP:   config.HostIP,
+				HostPort: config.HostPort,
+			}},
+		}
 	}
 	if len(config.Test) > 0 {
 		contConfig.Healthcheck = &cont.HealthConfig{
