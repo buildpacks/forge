@@ -20,9 +20,7 @@ var _ = Describe("Forwarder", func() {
 	var (
 		forwarder        *Forwarder
 		mockCtrl         *gomock.Controller
-		mockLoader       *mocks.MockLoader
 		mockEngine       *mocks.MockEngine
-		mockImage        *mocks.MockImage
 		mockNetContainer *mocks.MockContainer
 		mockContainer    *mocks.MockContainer
 		logs             *gbytes.Buffer
@@ -30,16 +28,13 @@ var _ = Describe("Forwarder", func() {
 
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
-		mockLoader = mocks.NewMockLoader()
 		mockEngine = mocks.NewMockEngine(mockCtrl)
-		mockImage = mocks.NewMockImage(mockCtrl)
 		mockNetContainer = mocks.NewMockContainer(mockCtrl)
 		mockContainer = mocks.NewMockContainer(mockCtrl)
 		logs = gbytes.NewBuffer()
 
 		forwarder = NewForwarder(mockEngine)
 		forwarder.Logs = logs
-		forwarder.Loader = mockLoader
 	})
 
 	AfterEach(func() {
@@ -48,9 +43,6 @@ var _ = Describe("Forwarder", func() {
 
 	Describe("#Forward", func() {
 		It("should configure service tunnels and general app networking", func() {
-			progress := make(chan engine.Progress, 1)
-			progress <- mockProgress{Value: "some-progress"}
-			close(progress)
 			mockHealth := make(<-chan string)
 			waiter := make(chan time.Time)
 			codeIdx := 0
@@ -83,19 +75,15 @@ var _ = Describe("Forwarder", func() {
 				HostPort: "400",
 				Wait:     waiter,
 			}
-			mockEngine.EXPECT().NewImage().Return(mockImage)
-			gomock.InOrder(
-				mockImage.EXPECT().Pull("some-stack").Return(progress),
-				mockEngine.EXPECT().NewContainer(gomock.Any()).Do(func(config *engine.ContainerConfig) {
-					Expect(config.Name).To(Equal("network"))
-					Expect(config.Hostname).To(Equal("some-name"))
-					Expect(config.Image).To(Equal("some-stack"))
-					Expect(config.Entrypoint).To(Equal([]string{"tail", "-f", "/dev/null"}))
-					Expect(config.HostIP).To(Equal("some-ip"))
-					Expect(config.HostPort).To(Equal("400"))
-					Expect(config.Exit).NotTo(BeNil())
-				}).Return(mockNetContainer, nil),
-			)
+			mockEngine.EXPECT().NewContainer(gomock.Any()).Do(func(config *engine.ContainerConfig) {
+				Expect(config.Name).To(Equal("network"))
+				Expect(config.Hostname).To(Equal("some-name"))
+				Expect(config.Image).To(Equal("some-stack"))
+				Expect(config.Entrypoint).To(Equal([]string{"tail", "-f", "/dev/null"}))
+				Expect(config.HostIP).To(Equal("some-ip"))
+				Expect(config.HostPort).To(Equal("400"))
+				Expect(config.Exit).NotTo(BeNil())
+			}).Return(mockNetContainer, nil)
 
 			mockNetContainer.EXPECT().ID().Return("some-net-container").AnyTimes()
 			gomock.InOrder(
@@ -150,7 +138,6 @@ var _ = Describe("Forwarder", func() {
 			Eventually(logs).Should(gbytes.Say(`start-1\[some-name tunnel\] % Exited with status: 100`))
 			Eventually(logs).Should(gbytes.Say("start-2"))
 			Consistently(logs).ShouldNot(gbytes.Say(`\[some-name tunnel\] % Exited with status: 200`))
-			Expect(mockLoader.Progress).To(Receive(Equal(mockProgress{Value: "some-progress"})))
 		})
 	})
 })

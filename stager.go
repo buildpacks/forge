@@ -13,7 +13,6 @@ import (
 
 type Stager struct {
 	Logs   io.Writer
-	Loader Loader
 	engine Engine
 }
 
@@ -23,6 +22,7 @@ type StageConfig struct {
 	CacheEmpty    bool
 	BuildpackZips map[string]engine.Stream
 	Stack         string
+	OutputPath    string
 	ForceDetect   bool
 	Color         Colorizer
 	AppConfig     *AppConfig
@@ -36,16 +36,11 @@ type ReadResetWriter interface {
 func NewStager(engine Engine) *Stager {
 	return &Stager{
 		Logs:   os.Stdout,
-		Loader: noopLoader{},
 		engine: engine,
 	}
 }
 
 func (s *Stager) Stage(config *StageConfig) (droplet engine.Stream, err error) {
-	if err := s.pull(config.Stack); err != nil {
-		return engine.Stream{}, err
-	}
-
 	containerConfig, err := s.buildConfig(config.AppConfig, config.Stack, config.ForceDetect)
 	if err != nil {
 		return engine.Stream{}, err
@@ -90,7 +85,7 @@ func (s *Stager) Stage(config *StageConfig) (droplet engine.Stream, err error) {
 		return engine.Stream{}, err
 	}
 
-	return contr.StreamFileFrom("/out/droplet.tgz")
+	return contr.StreamFileFrom(config.OutputPath)
 }
 
 func (s *Stager) buildConfig(app *AppConfig, stack string, forceDetect bool) (*engine.ContainerConfig, error) {
@@ -166,8 +161,4 @@ func streamOut(contr engine.Container, out io.Writer, path string) error {
 		return err
 	}
 	return stream.Out(out)
-}
-
-func (s *Stager) pull(stack string) error {
-	return s.Loader.Loading("Image", s.engine.NewImage().Pull(stack))
 }

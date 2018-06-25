@@ -24,15 +24,14 @@ type AppConfig struct {
 }
 
 type NetworkConfig struct {
-	ContainerID string
-	HostIP      string
-	HostPort    string
+	ContainerID   string
+	ContainerPort string
+	HostIP        string
+	HostPort      string
 }
 
 //go:generate mockgen -package mocks -destination mocks/container.go github.com/sclevine/forge/engine Container
-//go:generate mockgen -package mocks -destination mocks/image.go github.com/sclevine/forge/engine Image
 //go:generate mockgen -package mocks -destination mocks/engine.go github.com/sclevine/forge Engine
 type Engine interface {
 	NewContainer(config *engine.ContainerConfig) (engine.Container, error)
-	NewImage() engine.Image
 }

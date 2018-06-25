@@ -12,7 +12,7 @@ import (
 	"github.com/sclevine/forge/engine/docker/archive"
 )
 
-func Tar(path string) (app io.ReadCloser, err error) {
+func Tar(path string, excludes ...string) (app io.ReadCloser, err error) {
 	var absPath, appDir string
 
 	absPath, err = filepath.Abs(path)
@@ -47,7 +47,7 @@ func Tar(path string) (app io.ReadCloser, err error) {
 			return nil, err
 		}
 	}
-	files, err := appFiles(appDir)
+	files, err := appFiles(appDir, excludes)
 	if err != nil {
 		return nil, err
 	}
@@ -68,15 +68,14 @@ func (c *closeWrapper) Close() (err error) {
 	return c.ReadCloser.Close()
 }
 
-func appFiles(path string) ([]string, error) {
+func appFiles(path string, excludes []string) ([]string, error) {
 	var files []string
 	err := appfiles.ApplicationFiles{}.WalkAppFiles(path, func(relpath, _ string) error {
 		filename := filepath.Base(relpath)
-		switch {
-		case
-			regexp.MustCompile(`^.+\.droplet$`).MatchString(filename),
-			regexp.MustCompile(`^\..+\.cache$`).MatchString(filename):
-			return nil
+		for _, excludePattern := range excludes {
+			if regexp.MustCompile(excludePattern).MatchString(filename) {
+				return nil
+			}
 		}
 		files = append(files, relpath)
 		return nil

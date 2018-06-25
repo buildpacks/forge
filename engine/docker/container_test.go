@@ -50,6 +50,7 @@ var _ = Describe("Container", func() {
 			Name:       "some-name",
 			Hostname:   "test-container",
 			Image:      "sclevine/test",
+			Port:       "8080",
 			Env:        []string{"SOME-KEY=some-value"},
 			Entrypoint: entrypoint,
 			HostIP:     "127.0.0.1",

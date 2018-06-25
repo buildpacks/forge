@@ -16,21 +16,16 @@ var _ = Describe("Exporter", func() {
 	var (
 		exporter      *Exporter
 		mockCtrl      *gomock.Controller
-		mockLoader    *mocks.MockLoader
 		mockEngine    *mocks.MockEngine
-		mockImage     *mocks.MockImage
 		mockContainer *mocks.MockContainer
 	)
 
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
-		mockLoader = mocks.NewMockLoader()
 		mockEngine = mocks.NewMockEngine(mockCtrl)
-		mockImage = mocks.NewMockImage(mockCtrl)
 		mockContainer = mocks.NewMockContainer(mockCtrl)
 
 		exporter = NewExporter(mockEngine)
-		exporter.Loader = mockLoader
 	})
 
 	AfterEach(func() {
@@ -43,9 +38,11 @@ var _ = Describe("Exporter", func() {
 			progress <- mockProgress{Value: "some-progress"}
 			close(progress)
 			config := &ExportConfig{
-				Droplet: engine.NewStream(mockReadCloser{Value: "some-droplet"}, 100),
-				Stack:   "some-stack",
-				Ref:     "some-ref",
+				Droplet:    engine.NewStream(mockReadCloser{Value: "some-droplet"}, 100),
+				Stack:      "some-stack",
+				Ref:        "some-ref",
+				OutputDir:  "/home/vcap",
+				WorkingDir: "/home/vcap/app",
 				AppConfig: &AppConfig{
 					Name:      "some-name",
 					Command:   "some-command",
@@ -68,30 +65,25 @@ var _ = Describe("Exporter", func() {
 					},
 				},
 			}
-			mockEngine.EXPECT().NewImage().Return(mockImage)
-			gomock.InOrder(
-				mockImage.EXPECT().Pull("some-stack").Return(progress),
-				mockEngine.EXPECT().NewContainer(gomock.Any()).Do(func(config *engine.ContainerConfig) {
-					Expect(config.Name).To(Equal("some-name"))
-					Expect(config.Hostname).To(Equal("some-name"))
-					sort.Strings(config.Env)
-					Expect(config.Env).To(Equal([]string{
-						"PACK_APP_NAME=some-name",
-						"TEST_ENV_KEY=test-env-value",
-						"TEST_RUNNING_ENV_KEY=test-running-env-value",
-					}))
-					Expect(config.Image).To(Equal("some-stack"))
-					Expect(config.WorkingDir).To(Equal("/home/vcap/app"))
-					Expect(config.Entrypoint).To(Equal([]string{"/packs/launcher", "some-command"}))
-				}).Return(mockContainer, nil),
-			)
+			mockEngine.EXPECT().NewContainer(gomock.Any()).Do(func(config *engine.ContainerConfig) {
+				Expect(config.Name).To(Equal("some-name"))
+				Expect(config.Hostname).To(Equal("some-name"))
+				sort.Strings(config.Env)
+				Expect(config.Env).To(Equal([]string{
+					"PACK_APP_NAME=some-name",
+					"TEST_ENV_KEY=test-env-value",
+					"TEST_RUNNING_ENV_KEY=test-running-env-value",
+				}))
+				Expect(config.Image).To(Equal("some-stack"))
+				Expect(config.WorkingDir).To(Equal("/home/vcap/app"))
+				Expect(config.Entrypoint).To(Equal([]string{"/packs/launcher", "some-command"}))
+			}).Return(mockContainer, nil)
 			gomock.InOrder(
 				mockContainer.EXPECT().StreamTarTo(config.Droplet, "/home/vcap"),
 				mockContainer.EXPECT().Commit("some-ref").Return("some-image-id", nil),
 				mockContainer.EXPECT().Close(),
 			)
 			Expect(exporter.Export(config)).To(Equal("some-image-id"))
-			Expect(mockLoader.Progress).To(Receive(Equal(mockProgress{Value: "some-progress"})))
 		})
 
 		// TODO: test with custom start command

@@ -27,7 +27,6 @@ var bytesPattern = regexp.MustCompile(`(?i)^(-?\d+)([KMGT])B?$`)
 type Runner struct {
 	Logs   io.Writer
 	TTY    engine.TTY
-	Loader Loader
 	engine Engine
 }
 
@@ -35,6 +34,8 @@ type RunConfig struct {
 	Droplet       engine.Stream
 	Stack         string
 	AppDir        string
+	OutputDir     string
+	WorkingDir    string
 	Shell         bool
 	Restart       <-chan time.Time
 	Color         Colorizer
@@ -49,21 +50,16 @@ func NewRunner(engine Engine) *Runner {
 			In:  os.Stdin,
 			Out: os.Stdout,
 		},
-		Loader: noopLoader{},
 		engine: engine,
 	}
 }
 
 func (r *Runner) Run(config *RunConfig) (status int64, err error) {
-	if err := r.pull(config.Stack); err != nil {
-		return 0, err
-	}
-
 	var binds []string
 	if config.AppDir != "" {
 		binds = []string{config.AppDir + ":/tmp/local"}
 	}
-	containerConfig, err := r.buildConfig(config.AppConfig, config.NetworkConfig, binds, config.Stack)
+	containerConfig, err := r.buildConfig(config.AppConfig, config.NetworkConfig, binds, config.WorkingDir, config.Stack)
 	if err != nil {
 		return 0, err
 	}
@@ -73,7 +69,7 @@ func (r *Runner) Run(config *RunConfig) (status int64, err error) {
 	}
 	defer contr.Close()
 
-	if err := contr.StreamTarTo(config.Droplet, "/home/vcap"); err != nil {
+	if err := contr.StreamTarTo(config.Droplet, config.OutputDir); err != nil {
 		return 0, err
 	}
 	color := config.Color("[%s] ", config.AppConfig.Name)
@@ -86,11 +82,7 @@ func (r *Runner) Run(config *RunConfig) (status int64, err error) {
 	return 0, contr.Shell(r.TTY, "/packs/shell")
 }
 
-func (r *Runner) pull(stack string) error {
-	return r.Loader.Loading("Image", r.engine.NewImage().Pull(stack))
-}
-
-func (r *Runner) buildConfig(app *AppConfig, net *NetworkConfig, binds []string, stack string) (*engine.ContainerConfig, error) {
+func (r *Runner) buildConfig(app *AppConfig, net *NetworkConfig, binds []string, workingDir, stack string) (*engine.ContainerConfig, error) {
 	var disk, mem int64
 	var err error
 	env := map[string]string{}
@@ -127,8 +119,9 @@ func (r *Runner) buildConfig(app *AppConfig, net *NetworkConfig, binds []string,
 		Hostname:   app.Name,
 		Env:        mapToEnv(mergeMaps(env, app.RunningEnv, app.Env)),
 		Image:      stack,
-		WorkingDir: "/home/vcap/app",
+		WorkingDir: workingDir,
 		Entrypoint: []string{"/bin/bash", "-c", runScript, app.Command},
+		Port:       net.ContainerPort,
 
 		Binds:        binds,
 		NetContainer: net.ContainerID,
