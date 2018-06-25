@@ -34,9 +34,6 @@ var _ = Describe("Exporter", func() {
 
 	Describe("#Export", func() {
 		It("should load the provided droplet into a Docker image with the lifecycle", func() {
-			progress := make(chan engine.Progress, 1)
-			progress <- mockProgress{Value: "some-progress"}
-			close(progress)
 			config := &ExportConfig{
 				Droplet:    engine.NewStream(mockReadCloser{Value: "some-droplet"}, 100),
 				Stack:      "some-stack",

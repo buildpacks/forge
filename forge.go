@@ -4,10 +4,6 @@ import (
 	"github.com/buildpack/forge/engine"
 )
 
-type Loader interface {
-	Loading(message string, progress <-chan engine.Progress) error
-}
-
 type Colorizer func(string, ...interface{}) string
 
 type AppConfig struct {
