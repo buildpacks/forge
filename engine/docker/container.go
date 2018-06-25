@@ -17,10 +17,10 @@ import (
 	cont "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/strslice"
 	docker "github.com/docker/docker/client"
-	"github.com/docker/go-connections/nat"
 	gouuid "github.com/nu7hatch/gouuid"
 
 	eng "github.com/buildpack/forge/engine"
+	"github.com/docker/go-connections/nat"
 )
 
 type container struct {
@@ -53,19 +53,6 @@ func (e *engine) NewContainer(config *eng.ContainerConfig) (eng.Container, error
 			DiskQuota: config.DiskQuota,
 		},
 	}
-	if config.Port != "" {
-		port, err := nat.NewPort("tcp", config.Port)
-		if err != nil {
-			return nil, err
-		}
-		contConfig.ExposedPorts = nat.PortSet{port: struct{}{}}
-		hostConfig.PortBindings = nat.PortMap{
-			port: {{
-				HostIP:   config.HostIP,
-				HostPort: config.HostPort,
-			}},
-		}
-	}
 	if len(config.Test) > 0 {
 		contConfig.Healthcheck = &cont.HealthConfig{
 			Test:        config.Test,
@@ -77,8 +64,19 @@ func (e *engine) NewContainer(config *eng.ContainerConfig) (eng.Container, error
 	}
 	if config.NetContainer != "" {
 		contConfig.Hostname = ""
-		hostConfig.PortBindings = nil
 		hostConfig.NetworkMode = cont.NetworkMode("container:" + config.NetContainer)
+	} else if config.Port != "" {
+		port, err := nat.NewPort("tcp", config.Port)
+		if err != nil {
+			return nil, err
+		}
+		contConfig.ExposedPorts = nat.PortSet{port: struct{}{}}
+		hostConfig.PortBindings = nat.PortMap{
+			port: {{
+				HostIP:   config.HostIP,
+				HostPort: config.HostPort,
+			}},
+		}
 	}
 	check := config.Check
 	if check == nil {
