@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sclevine/forge/engine"
-	"github.com/sclevine/forge/engine/docker/term"
+	"github.com/buildpack/forge/engine"
+	"github.com/buildpack/forge/engine/docker/term"
 )
 
 const runScript = `

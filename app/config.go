@@ -6,7 +6,7 @@ import (
 
 	yaml "gopkg.in/yaml.v2"
 
-	"github.com/sclevine/forge"
+	"github.com/buildpack/forge"
 )
 
 type Config struct {

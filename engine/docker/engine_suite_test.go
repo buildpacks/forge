@@ -10,8 +10,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	eng "github.com/sclevine/forge/engine"
-	. "github.com/sclevine/forge/engine/docker"
+	eng "github.com/buildpack/forge/engine"
+	. "github.com/buildpack/forge/engine/docker"
 )
 
 func TestEngine(t *testing.T) {

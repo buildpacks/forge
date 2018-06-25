@@ -1,7 +1,7 @@
 package forge
 
 import (
-	"github.com/sclevine/forge/engine"
+	"github.com/buildpack/forge/engine"
 )
 
 type Loader interface {
@@ -30,8 +30,8 @@ type NetworkConfig struct {
 	HostPort      string
 }
 
-//go:generate mockgen -package mocks -destination mocks/container.go github.com/sclevine/forge/engine Container
-//go:generate mockgen -package mocks -destination mocks/engine.go github.com/sclevine/forge Engine
+//go:generate mockgen -package mocks -destination mocks/container.go github.com/buildpack/forge/engine Container
+//go:generate mockgen -package mocks -destination mocks/engine.go github.com/buildpack/forge Engine
 type Engine interface {
 	NewContainer(config *engine.ContainerConfig) (engine.Container, error)
 }

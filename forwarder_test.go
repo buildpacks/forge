@@ -11,9 +11,9 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 
-	. "github.com/sclevine/forge"
-	"github.com/sclevine/forge/engine"
-	"github.com/sclevine/forge/mocks"
+	. "github.com/buildpack/forge"
+	"github.com/buildpack/forge/engine"
+	"github.com/buildpack/forge/mocks"
 )
 
 var _ = Describe("Forwarder", func() {

@@ -8,7 +8,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/sclevine/forge/engine"
+	"github.com/buildpack/forge/engine"
 )
 
 func TestLocal(t *testing.T) {

@@ -11,7 +11,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	eng "github.com/sclevine/forge/engine"
+	eng "github.com/buildpack/forge/engine"
 )
 
 var _ = Describe("Image", func() {

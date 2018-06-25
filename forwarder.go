@@ -9,8 +9,8 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/sclevine/forge/engine"
-	"github.com/sclevine/forge/internal"
+	"github.com/buildpack/forge/engine"
+	"github.com/buildpack/forge/internal"
 )
 
 const forwardScriptTmpl = `

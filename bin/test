@@ -4,6 +4,6 @@ set -e
 
 cd $(dirname "${BASH_SOURCE[0]}")/..
 
-go install github.com/sclevine/forge/vendor/github.com/onsi/ginkgo/ginkgo
+go install github.com/buildpack/forge/vendor/github.com/onsi/ginkgo/ginkgo
 
 ginkgo -r -skipPackage /vendor/ $@ .
