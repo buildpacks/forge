@@ -40,6 +40,7 @@ type ForwardConfig struct {
 	Stack            string
 	Color            Colorizer
 	Details          *ForwardDetails
+	ContainerPort    string
 	HostIP, HostPort string
 	Wait             <-chan time.Time
 }
@@ -54,7 +55,7 @@ func NewForwarder(engine Engine) *Forwarder {
 func (f *Forwarder) Forward(config *ForwardConfig) (health <-chan string, done func(), id string, err error) {
 	output := internal.NewLockWriter(f.Logs)
 
-	netContr, err := f.engine.NewContainer(f.buildNetConfig(config.AppName, config.Stack, config.HostIP, config.HostPort))
+	netContr, err := f.engine.NewContainer(f.buildNetConfig(config.AppName, config.Stack, config.ContainerPort, config.HostIP, config.HostPort))
 	if err != nil {
 		return nil, nil, "", err
 	}
@@ -129,11 +130,12 @@ func (f *Forwarder) buildConfig(forward *ForwardDetails, stack, netID string) (*
 	}, nil
 }
 
-func (f *Forwarder) buildNetConfig(name, stack, hostIP, hostPort string) *engine.ContainerConfig {
+func (f *Forwarder) buildNetConfig(name, stack, containerPort, hostIP, hostPort string) *engine.ContainerConfig {
 	return &engine.ContainerConfig{
 		Name:       "network",
 		Hostname:   name,
 		Image:      stack,
+		Port:       containerPort,
 		Entrypoint: []string{"tail", "-f", "/dev/null"},
 		HostIP:     hostIP,
 		HostPort:   hostPort,

@@ -71,14 +71,16 @@ var _ = Describe("Forwarder", func() {
 						},
 					},
 				},
-				HostIP:   "some-ip",
-				HostPort: "400",
-				Wait:     waiter,
+				ContainerPort: "300",
+				HostIP:        "some-ip",
+				HostPort:      "400",
+				Wait:          waiter,
 			}
 			mockEngine.EXPECT().NewContainer(gomock.Any()).Do(func(config *engine.ContainerConfig) {
 				Expect(config.Name).To(Equal("network"))
 				Expect(config.Hostname).To(Equal("some-name"))
 				Expect(config.Image).To(Equal("some-stack"))
+				Expect(config.Port).To(Equal("300"))
 				Expect(config.Entrypoint).To(Equal([]string{"tail", "-f", "/dev/null"}))
 				Expect(config.HostIP).To(Equal("some-ip"))
 				Expect(config.HostPort).To(Equal("400"))
