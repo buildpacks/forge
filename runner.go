@@ -41,6 +41,7 @@ type RunConfig struct {
 	Color         Colorizer
 	AppConfig     *AppConfig
 	NetworkConfig *NetworkConfig
+	Script        string
 }
 
 func NewRunner(engine Engine) *Runner {
@@ -59,7 +60,7 @@ func (r *Runner) Run(config *RunConfig) (status int64, err error) {
 	if config.AppDir != "" {
 		binds = []string{config.AppDir + ":/tmp/local"}
 	}
-	containerConfig, err := r.buildConfig(config.AppConfig, config.NetworkConfig, binds, config.WorkingDir, config.Stack)
+	containerConfig, err := r.buildConfig(config.AppConfig, config.NetworkConfig, binds, config.WorkingDir, config.Stack, config.Script)
 	if err != nil {
 		return 0, err
 	}
@@ -82,7 +83,7 @@ func (r *Runner) Run(config *RunConfig) (status int64, err error) {
 	return 0, contr.Shell(r.TTY, "/packs/shell")
 }
 
-func (r *Runner) buildConfig(app *AppConfig, net *NetworkConfig, binds []string, workingDir, stack string) (*engine.ContainerConfig, error) {
+func (r *Runner) buildConfig(app *AppConfig, net *NetworkConfig, binds []string, workingDir, stack, script string) (*engine.ContainerConfig, error) {
 	var disk, mem int64
 	var err error
 	env := map[string]string{}
@@ -114,13 +115,17 @@ func (r *Runner) buildConfig(app *AppConfig, net *NetworkConfig, binds []string,
 		env["VCAP_SERVICES"] = string(vcapServices)
 	}
 
+	if script == "" {
+		script = runScript
+	}
+
 	return &engine.ContainerConfig{
 		Name:       app.Name,
 		Hostname:   app.Name,
 		Env:        mapToEnv(mergeMaps(env, app.RunningEnv, app.Env)),
 		Image:      stack,
 		WorkingDir: workingDir,
-		Entrypoint: []string{"/bin/bash", "-c", runScript, app.Command},
+		Entrypoint: []string{"/bin/bash", "-c", script, app.Command},
 		Port:       net.ContainerPort,
 
 		Binds:        binds,
