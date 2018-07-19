@@ -52,6 +52,7 @@ func (e *Exporter) buildConfig(app *AppConfig, workingDir, stack string) (*engin
 		Image:      stack,
 		WorkingDir: workingDir,
 		Entrypoint: []string{"/packs/launcher", app.Command},
+		Cmd:        []string{app.Command},
 		SkipProxy:  true,
 	}, nil
 }
