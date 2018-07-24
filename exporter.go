@@ -51,7 +51,7 @@ func (e *Exporter) buildConfig(app *AppConfig, workingDir, stack string) (*engin
 		Env:        mapToEnv(mergeMaps(env, app.RunningEnv, app.Env)),
 		Image:      stack,
 		WorkingDir: workingDir,
-		Entrypoint: []string{"/packs/launcher", app.Command},
+		Entrypoint: []string{"/packs/launcher"},
 		Cmd:        []string{app.Command},
 		SkipProxy:  true,
 	}, nil
