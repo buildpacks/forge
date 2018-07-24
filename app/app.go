@@ -71,9 +71,8 @@ func (c *closeWrapper) Close() (err error) {
 func appFiles(path string, excludes []string) ([]string, error) {
 	var files []string
 	err := appfiles.ApplicationFiles{}.WalkAppFiles(path, func(relpath, _ string) error {
-		filename := filepath.Base(relpath)
 		for _, excludePattern := range excludes {
-			if regexp.MustCompile(excludePattern).MatchString(filename) {
+			if regexp.MustCompile(excludePattern).MatchString(relpath) {
 				return nil
 			}
 		}
