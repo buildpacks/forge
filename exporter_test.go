@@ -73,7 +73,8 @@ var _ = Describe("Exporter", func() {
 				}))
 				Expect(config.Image).To(Equal("some-stack"))
 				Expect(config.WorkingDir).To(Equal("/home/vcap/app"))
-				Expect(config.Entrypoint).To(Equal([]string{"/packs/launcher", "some-command"}))
+				Expect(config.Entrypoint).To(Equal([]string{"/packs/launcher"}))
+				Expect(config.Cmd).To(Equal([]string{"some-command"}))
 			}).Return(mockContainer, nil)
 			gomock.InOrder(
 				mockContainer.EXPECT().StreamTarTo(config.Droplet, "/home/vcap"),
