@@ -82,6 +82,7 @@ require (
 	github.com/samuel/go-zookeeper v0.0.0-20150415181332-d0e0d8e11f31
 	github.com/sean-/seed v0.0.0-20170313163322-e2103e2c3529
 	github.com/seccomp/libseccomp-golang v0.0.0-20160531183505-32f571b70023
+	github.com/sirupsen/logrus v1.0.6
 	github.com/stevvooe/ttrpc v0.0.0-20171201193849-76e68349ad9a
 	github.com/stretchr/testify v0.0.0-20170130113145-4d4bfba8f1d1
 	github.com/syndtr/gocapability v0.0.0-20150716010906-2c00daeb6c3b
