@@ -3,12 +3,12 @@ language: go
 services:
 - docker
 go:
-- 1.10.x
+- go1.11rc1
+env:
+- GO111MODULE=on
 install:
 - set -e
-- curl -fsSLo "$GOPATH/bin/dep" "https://github.com/golang/dep/releases/download/v0.4.1/dep-linux-amd64"
-- chmod +x "$GOPATH/bin/dep"
-- dep ensure
+- go mod vendor
 script:
 - test -z "$(bin/format | tee >(cat >&2))"
 - bin/test -nodes=2 -compilers=2
