@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"errors"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -13,22 +13,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/docker/docker/api/types"
-	cont "github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/strslice"
-	docker "github.com/docker/docker/client"
-	"github.com/docker/go-connections/nat"
-	gouuid "github.com/nu7hatch/gouuid"
-
 	eng "github.com/buildpack/forge/engine"
+	"github.com/buildpack/forge/engine/docker/httpsocket"
+	gouuid "github.com/nu7hatch/gouuid"
 )
 
 type container struct {
 	exit   <-chan struct{}
 	check  <-chan time.Time
-	docker *docker.Client
+	docker *httpsocket.Client
 	id     string
-	config *cont.Config
+	config *CreateContainerConfig
 }
 
 func (e *engine) NewContainer(config *eng.ContainerConfig) (eng.Container, error) {
@@ -37,47 +32,43 @@ func (e *engine) NewContainer(config *eng.ContainerConfig) (eng.Container, error
 		return nil, err
 	}
 
-	contConfig := &cont.Config{
+	contConfig := &CreateContainerConfig{
 		Hostname:   config.Hostname,
 		User:       config.User,
 		Image:      config.Image,
 		WorkingDir: config.WorkingDir,
 		Env:        append(e.proxyEnv(config), config.Env...),
-		Entrypoint: strslice.StrSlice(config.Entrypoint),
-		Cmd:        strslice.StrSlice(config.Cmd),
-	}
-	hostConfig := &cont.HostConfig{
-		Binds: config.Binds,
-		Resources: cont.Resources{
-			Memory:    config.Memory,
-			DiskQuota: config.DiskQuota,
+		Entrypoint: config.Entrypoint,
+		Cmd:        config.Cmd,
+		HostConfig: HostConfig{
+			Binds:  config.Binds,
+			Memory: int(config.Memory),
+			// 	DiskQuota: config.DiskQuota,
 		},
 	}
 	if len(config.Test) > 0 {
-		contConfig.Healthcheck = &cont.HealthConfig{
+		contConfig.Healthcheck = &HealthConfig{
 			Test:        config.Test,
-			Interval:    config.Interval,
-			Timeout:     config.Timeout,
-			StartPeriod: config.StartPeriod,
+			Interval:    config.Interval.Nanoseconds(),
+			Timeout:     config.Timeout.Nanoseconds(),
+			StartPeriod: config.StartPeriod.Nanoseconds(),
 			Retries:     config.Retries,
 		}
 	}
 	if config.NetContainer != "" {
 		contConfig.Hostname = ""
-		hostConfig.NetworkMode = cont.NetworkMode("container:" + config.NetContainer)
+		contConfig.HostConfig.NetworkMode = "container:" + config.NetContainer
 	} else if config.Port != "" {
-		port, err := nat.NewPort("tcp", config.Port)
-		if err != nil {
-			return nil, err
-		}
-		contConfig.ExposedPorts = nat.PortSet{port: struct{}{}}
-		hostConfig.PortBindings = nat.PortMap{
-			port: {{
+		port := fmt.Sprintf("%s/tcp", config.Port)
+		contConfig.ExposedPorts = map[string]interface{}{port: struct{}{}}
+		contConfig.HostConfig.PortBindings = map[string]PortBindingConfig{
+			port: {
 				HostIP:   config.HostIP,
 				HostPort: config.HostPort,
-			}},
+			},
 		}
 	}
+
 	check := config.Check
 	if check == nil {
 		check = time.NewTicker(time.Second).C
@@ -86,11 +77,26 @@ func (e *engine) NewContainer(config *eng.ContainerConfig) (eng.Container, error
 	if exit == nil {
 		exit = e.exit
 	}
-	ctx := context.Background()
-	response, err := e.docker.ContainerCreate(ctx, contConfig, hostConfig, nil, fmt.Sprintf("%s-%s", config.Name, uuid))
-	if err != nil {
-		return nil, err
+
+	a, b := json.Marshal(contConfig)
+	fmt.Printf("JSON: %s\nERR: %v\n", a, b)
+
+	// ctx := context.Background()
+	// response, err := e.docker.ContainerCreate(ctx, contConfig, hostConfig, nil, fmt.Sprintf("%s-%s", config.Name, uuid))
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// return &container{exit, check, e.docker, response.ID, contConfig}, nil
+
+	response := struct {
+		ID string `json:"Id"`
+		// TODO do something with warnings
+		Warnings string
+	}{}
+	if err := e.docker.Post(fmt.Sprintf("/containers/create?name=%s-%s", config.Name, uuid), contConfig, &response); err != nil {
+		return &container{}, err
 	}
+
 	return &container{exit, check, e.docker, response.ID, contConfig}, nil
 }
 
@@ -99,10 +105,11 @@ func (c *container) ID() string {
 }
 
 func (c *container) Close() error {
-	ctx := context.Background()
-	return c.docker.ContainerRemove(ctx, c.id, types.ContainerRemoveOptions{
-		Force: true,
-	})
+	// ctx := context.Background()
+	// return c.docker.ContainerRemove(ctx, c.id, types.ContainerRemoveOptions{
+	// 	Force: true,
+	// })
+	return nil
 }
 
 func (c *container) CloseAfterStream(stream *eng.Stream) error {
@@ -117,96 +124,100 @@ func (c *container) CloseAfterStream(stream *eng.Stream) error {
 }
 
 func (c *container) Background() error {
-	ctx := context.Background()
-	return c.docker.ContainerStart(ctx, c.id, types.ContainerStartOptions{})
+	// ctx := context.Background()
+	// return c.docker.ContainerStart(ctx, c.id, types.ContainerStartOptions{})
+	return nil
 }
 
 func (c *container) Start(logPrefix string, logs io.Writer, restart <-chan time.Time) (status int64, err error) {
-	defer func() {
-		if isErrCanceled(err) {
-			status, err = 128, nil
-		}
-	}()
-	done := make(chan struct{})
-	defer close(done)
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		select {
-		case <-done:
-			cancel()
-		case <-c.exit:
-			cancel()
-		}
-	}()
-	logQueue := copyStreams(logs, logPrefix)
-	defer close(logQueue)
-
-	if err := c.docker.ContainerStart(ctx, c.id, types.ContainerStartOptions{}); err != nil {
-		return 0, err
-	}
-	contLogs, err := c.docker.ContainerLogs(ctx, c.id, types.ContainerLogsOptions{
-		ShowStdout: true,
-		ShowStderr: true,
-		Timestamps: true,
-		Follow:     true,
-	})
-	if err != nil {
-		return 0, err
-	}
-	logQueue <- contLogs
-
-	if restart != nil {
-		return c.restart(ctx, contLogs, logQueue, restart), nil
-	}
-	defer contLogs.Close()
-
-	respC, errC := c.docker.ContainerWait(ctx, c.id, "")
-	select {
-	case resp := <-respC:
-		if resp.Error != nil {
-			return 0, errors.New(resp.Error.Message)
-		}
-		return resp.StatusCode, nil
-	case err := <-errC:
-		return 0, err
-	}
+	// defer func() {
+	// 	if isErrCanceled(err) {
+	// 		status, err = 128, nil
+	// 	}
+	// }()
+	// done := make(chan struct{})
+	// defer close(done)
+	// ctx, cancel := context.WithCancel(context.Background())
+	// go func() {
+	// 	select {
+	// 	case <-done:
+	// 		cancel()
+	// 	case <-c.exit:
+	// 		cancel()
+	// 	}
+	// }()
+	// logQueue := copyStreams(logs, logPrefix)
+	// defer close(logQueue)
+	//
+	// if err := c.docker.ContainerStart(ctx, c.id, types.ContainerStartOptions{}); err != nil {
+	// 	return 0, err
+	// }
+	// contLogs, err := c.docker.ContainerLogs(ctx, c.id, types.ContainerLogsOptions{
+	// 	ShowStdout: true,
+	// 	ShowStderr: true,
+	// 	Timestamps: true,
+	// 	Follow:     true,
+	// })
+	// if err != nil {
+	// 	return 0, err
+	// }
+	// logQueue <- contLogs
+	//
+	// if restart != nil {
+	// 	return c.restart(ctx, contLogs, logQueue, restart), nil
+	// }
+	// defer contLogs.Close()
+	//
+	// respC, errC := c.docker.ContainerWait(ctx, c.id, "")
+	// select {
+	// case resp := <-respC:
+	// 	if resp.Error != nil {
+	// 		return 0, errors.New(resp.Error.Message)
+	// 	}
+	// 	return resp.StatusCode, nil
+	// case err := <-errC:
+	// 	return 0, err
+	// }
+	return 0, nil
 }
 
 func (c *container) restart(ctx context.Context, contLogs io.ReadCloser, logQueue chan<- io.Reader, restart <-chan time.Time) (status int64) {
 	// TODO: log on each continue
 
-	for {
-		select {
-		case <-restart:
-			wait := time.Second
-			if err := c.docker.ContainerRestart(ctx, c.id, &wait); err != nil {
-				continue
-			}
-			contJSON, err := c.docker.ContainerInspect(ctx, c.id)
-			if err != nil {
-				continue
-			}
-			startedAt, err := time.Parse(time.RFC3339Nano, contJSON.State.StartedAt)
-			if err != nil {
-				startedAt = time.Unix(0, 0)
-			}
-			contLogs.Close()
-			contLogs, err = c.docker.ContainerLogs(ctx, c.id, types.ContainerLogsOptions{
-				Timestamps: true,
-				ShowStdout: true,
-				ShowStderr: true,
-				Follow:     true,
-				Since:      startedAt.Add(-100 * time.Millisecond).Format(time.RFC3339Nano),
-			})
-			if err != nil {
-				continue
-			}
-			logQueue <- contLogs
-		case <-c.exit:
-			defer contLogs.Close()
-			return 128
-		}
-	}
+	// for {
+	// 	select {
+	// 	case <-restart:
+	// 		wait := time.Second
+	// 		if err := c.docker.ContainerRestart(ctx, c.id, &wait); err != nil {
+	// 			continue
+	// 		}
+	// 		contJSON, err := c.docker.ContainerInspect(ctx, c.id)
+	// 		if err != nil {
+	// 			continue
+	// 		}
+	// 		startedAt, err := time.Parse(time.RFC3339Nano, contJSON.State.StartedAt)
+	// 		if err != nil {
+	// 			startedAt = time.Unix(0, 0)
+	// 		}
+	// 		contLogs.Close()
+	// 		contLogs, err = c.docker.ContainerLogs(ctx, c.id, types.ContainerLogsOptions{
+	// 			Timestamps: true,
+	// 			ShowStdout: true,
+	// 			ShowStderr: true,
+	// 			Follow:     true,
+	// 			Since:      startedAt.Add(-100 * time.Millisecond).Format(time.RFC3339Nano),
+	// 		})
+	// 		if err != nil {
+	// 			continue
+	// 		}
+	// 		logQueue <- contLogs
+	// 	case <-c.exit:
+	// 		defer contLogs.Close()
+	// 		return 128
+	// 	}
+	// }
+
+	return 0
 }
 
 func isErrCanceled(err error) bool {
@@ -236,81 +247,85 @@ func copyStreams(dst io.Writer, prefix string) chan<- io.Reader {
 }
 
 func (c *container) Shell(tty eng.TTY, shell ...string) (err error) {
-	defer func() {
-		if isErrCanceled(err) {
-			err = nil
-		}
-	}()
-	done := make(chan struct{})
-	defer close(done)
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		select {
-		case <-done:
-			cancel()
-		case <-c.exit:
-			cancel()
-		}
-	}()
+	// defer func() {
+	// 	if isErrCanceled(err) {
+	// 		err = nil
+	// 	}
+	// }()
+	// done := make(chan struct{})
+	// defer close(done)
+	// ctx, cancel := context.WithCancel(context.Background())
+	// go func() {
+	// 	select {
+	// 	case <-done:
+	// 		cancel()
+	// 	case <-c.exit:
+	// 		cancel()
+	// 	}
+	// }()
+	//
+	// config := types.ExecConfig{
+	// 	User:         c.config.User,
+	// 	Tty:          true,
+	// 	AttachStdin:  true,
+	// 	AttachStderr: true,
+	// 	AttachStdout: true,
+	// 	Env:          c.config.Env,
+	// 	Cmd:          shell,
+	// }
+	// idResp, err := c.docker.ContainerExecCreate(ctx, c.id, config)
+	// if err != nil {
+	// 	return err
+	// }
+	//
+	// attachResp, err := c.docker.ContainerExecAttach(ctx, idResp.ID, types.ExecStartCheck{Tty: true})
+	// if err != nil {
+	// 	return err
+	// }
+	//
+	// return tty.Run(attachResp.Reader, attachResp.Conn, func(h, w uint16) error {
+	// 	return c.docker.ContainerExecResize(ctx, idResp.ID, types.ResizeOptions{Height: uint(h), Width: uint(w)})
+	// })
 
-	config := types.ExecConfig{
-		User:         c.config.User,
-		Tty:          true,
-		AttachStdin:  true,
-		AttachStderr: true,
-		AttachStdout: true,
-		Env:          c.config.Env,
-		Cmd:          shell,
-	}
-	idResp, err := c.docker.ContainerExecCreate(ctx, c.id, config)
-	if err != nil {
-		return err
-	}
-
-	attachResp, err := c.docker.ContainerExecAttach(ctx, idResp.ID, types.ExecStartCheck{Tty: true})
-	if err != nil {
-		return err
-	}
-
-	return tty.Run(attachResp.Reader, attachResp.Conn, func(h, w uint16) error {
-		return c.docker.ContainerExecResize(ctx, idResp.ID, types.ResizeOptions{Height: uint(h), Width: uint(w)})
-	})
+	return nil
 }
 
 func (c *container) HealthCheck() <-chan string {
 	status := make(chan string)
-	go func() {
-		ctx := context.Background()
-		for {
-			select {
-			case <-c.exit:
-				return
-			case <-c.check:
-				contJSON, err := c.docker.ContainerInspect(ctx, c.id)
-				if err != nil || contJSON.State == nil || contJSON.State.Health == nil {
-					status <- types.NoHealthcheck
-					continue
-				}
-				status <- contJSON.State.Health.Status
-			}
-		}
-	}()
+	// go func() {
+	// 	ctx := context.Background()
+	// 	for {
+	// 		select {
+	// 		case <-c.exit:
+	// 			return
+	// 		case <-c.check:
+	// 			contJSON, err := c.docker.ContainerInspect(ctx, c.id)
+	// 			if err != nil || contJSON.State == nil || contJSON.State.Health == nil {
+	// 				status <- types.NoHealthcheck
+	// 				continue
+	// 			}
+	// 			status <- contJSON.State.Health.Status
+	// 		}
+	// 	}
+	// }()
 	return status
 }
 
 func (c *container) Commit(ref string) (imageID string, err error) {
-	ctx := context.Background()
-	response, err := c.docker.ContainerCommit(ctx, c.id, types.ContainerCommitOptions{
-		Reference: ref,
-		Pause:     true,
-		Config:    c.config,
-	})
-	return response.ID, err
+	// ctx := context.Background()
+	// response, err := c.docker.ContainerCommit(ctx, c.id, types.ContainerCommitOptions{
+	// 	Reference: ref,
+	// 	Pause:     true,
+	// 	Config:    c.config,
+	// })
+	// return response.ID, err
+	return "", nil
 }
 
 func (c *container) UploadTarTo(tar io.Reader, path string) error {
-	ctx := context.Background()
-	return c.docker.CopyToContainer(ctx, c.id, path, onlyReader(tar), types.CopyToContainerOptions{})
+	// ctx := context.Background()
+	// return c.docker.CopyToContainer(ctx, c.id, path, onlyReader(tar), types.CopyToContainerOptions{})
+	return nil
 }
 
 func onlyReader(r io.Reader) io.Reader {
@@ -339,26 +354,28 @@ func (c *container) StreamTarTo(stream eng.Stream, path string) error {
 }
 
 func (c *container) StreamFileFrom(path string) (eng.Stream, error) {
-	ctx := context.Background()
-	tar, stat, err := c.docker.CopyFromContainer(ctx, c.id, path)
-	if err != nil {
-		return eng.Stream{}, err
-	}
-	reader, _, err := fileFromTar(gopath.Base(path), tar)
-	if err != nil {
-		tar.Close()
-		return eng.Stream{}, err
-	}
-	return eng.NewStream(splitReadCloser{reader, tar}, stat.Size), nil
+	// ctx := context.Background()
+	// tar, stat, err := c.docker.CopyFromContainer(ctx, c.id, path)
+	// if err != nil {
+	// 	return eng.Stream{}, err
+	// }
+	// reader, _, err := fileFromTar(gopath.Base(path), tar)
+	// if err != nil {
+	// 	tar.Close()
+	// 	return eng.Stream{}, err
+	// }
+	// return eng.NewStream(splitReadCloser{reader, tar}, stat.Size), nil
+	return eng.Stream{}, nil
 }
 
 func (c *container) StreamTarFrom(path string) (eng.Stream, error) {
-	ctx := context.Background()
-	tar, stat, err := c.docker.CopyFromContainer(ctx, c.id, path+"/.")
-	if err != nil {
-		return eng.Stream{}, err
-	}
-	return eng.NewStream(tar, stat.Size), nil
+	// ctx := context.Background()
+	// tar, stat, err := c.docker.CopyFromContainer(ctx, c.id, path+"/.")
+	// if err != nil {
+	// 	return eng.Stream{}, err
+	// }
+	// return eng.NewStream(tar, stat.Size), nil
+	return eng.Stream{}, nil
 }
 
 func fileFromTar(name string, archive io.Reader) (file io.Reader, header *tar.Header, err error) {

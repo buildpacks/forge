@@ -6,30 +6,31 @@ import (
 	"io"
 	"strings"
 
-	docker "github.com/docker/docker/client"
-
 	eng "github.com/buildpack/forge/engine"
+	"github.com/buildpack/forge/engine/docker/httpsocket"
 )
 
 type engine struct {
 	proxy  eng.ProxyConfig
 	exit   <-chan struct{}
-	docker *docker.Client
+	docker *httpsocket.Client
 }
 
 func New(config *eng.EngineConfig) (eng.Engine, error) {
-	client, err := docker.NewEnvClient()
-	return &engine{config.Proxy, config.Exit, client}, err
+	httpc := httpsocket.New("/var/run/docker.sock")
+	// TODO check that we can talk to docker?
+	return &engine{config.Proxy, config.Exit, httpc}, nil
 }
 
 func (e *engine) Close() error {
-	return e.docker.Close()
+	// return e.docker.Close()
+	return nil
 }
 
 func (e *engine) proxyEnv(config *eng.ContainerConfig) []string {
-	if config.SkipProxy ||
-		!e.proxy.UseRemotely &&
-			e.docker.DaemonHost() != docker.DefaultDockerHost {
+	if config.SkipProxy { // ||
+		// !e.proxy.UseRemotely &&
+		// 	e.docker.DaemonHost() != docker.DefaultDockerHost
 		return nil
 	}
 	var env []string
