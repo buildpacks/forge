@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -77,9 +76,6 @@ func (e *engine) NewContainer(config *eng.ContainerConfig) (eng.Container, error
 	if exit == nil {
 		exit = e.exit
 	}
-
-	a, b := json.Marshal(contConfig)
-	fmt.Printf("JSON: %s\nERR: %v\n", a, b)
 
 	response := struct {
 		ID string `json:"Id"`

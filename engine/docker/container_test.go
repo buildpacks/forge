@@ -80,17 +80,13 @@ var _ = Describe("Container", func() {
 		FIt("should configure the container", func() {
 			jsonString, err := exec.Command("docker", "container", "inspect", contr.ID()).CombinedOutput()
 			Expect(err).To(BeNil())
-			// fmt.Println("DG", string(jsonString))
 			data, err := jsonpath.DecodeString(string(jsonString))
 			Expect(err).To(BeNil())
 			Expect(jsonpath.GetString(data, []interface{}{0, "Name"}, "")).To(HavePrefix("/some-name-"))
 			Expect(jsonpath.Get(data, []interface{}{0, "Config", "Env"}, nil)).To(ContainElement("SOME-KEY=some-value"))
 			Expect(jsonpath.Get(data, []interface{}{0, "Config", "Healthcheck", "Test"}, nil)).To(Equal([]interface{}{"echo"}))
-			fmt.Println(jsonpath.Get(data, []interface{}{0, "HostConfig"}, nil))
-			fmt.Println(jsonpath.Get(data, []interface{}{0, "HostConfig", "PortBindings"}, nil))
-			fmt.Println(jsonpath.Get(data, []interface{}{0, "HostConfig", "PortBindings", "8080/tcp"}, nil))
 			Expect(jsonpath.Get(data, []interface{}{0, "HostConfig", "PortBindings"}, nil)).To(BeEquivalentTo(map[string]interface{}{
-				"8080/tcp": []map[string]interface{}{{"HostIp": "127.0.0.1", "HostPort": config.HostPort}},
+				"8080/tcp": []interface{}{map[string]interface{}{"HostIp": "127.0.0.1", "HostPort": config.HostPort}},
 			}))
 		})
 	})
