@@ -87,7 +87,7 @@ var _ = Describe("Container", func() {
 			Expect(jsonpath.Get(data, []interface{}{0, "Config", "Env"}, nil)).To(ContainElement("SOME-KEY=some-value"))
 			Expect(jsonpath.Get(data, []interface{}{0, "Config", "Healthcheck", "Test"}, nil)).To(Equal([]interface{}{"echo"}))
 			Expect(jsonpath.Get(data, []interface{}{0, "Config", "HostConfig", "PortBindings"}, nil)).To(BeEquivalentTo(map[string]interface{}{
-				"8080/tcp": map[string]string{"HostIP": "127.0.0.1", "HostPort": config.HostPort},
+				"8080/tcp": []interface{}{map[string]string{"HostIP": "127.0.0.1", "HostPort": config.HostPort}},
 			}))
 		})
 	})
