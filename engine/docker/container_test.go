@@ -77,7 +77,7 @@ var _ = Describe("Container", func() {
 			healthTest = []string{"echo"}
 		})
 
-		FIt("should configure the container", func() {
+		It("should configure the container", func() {
 			jsonString, err := exec.Command("docker", "container", "inspect", contr.ID()).CombinedOutput()
 			Expect(err).To(BeNil())
 			data, err := jsonpath.DecodeString(string(jsonString))
@@ -91,7 +91,7 @@ var _ = Describe("Container", func() {
 		})
 	})
 
-	Describe("#Close", func() {
+	FDescribe("#Close", func() {
 		It("should remove the container", func() {
 			Expect(containerFound(contr.ID())).To(BeTrue())
 			Expect(contr.Close()).To(Succeed())

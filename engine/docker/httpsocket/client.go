@@ -43,3 +43,20 @@ func (c *Client) Post(path string, data interface{}, out interface{}) error {
 	defer res.Body.Close()
 	return json.NewDecoder(res.Body).Decode(out)
 }
+
+func (c *Client) Delete(path string, out interface{}) error {
+	req, err := http.NewRequest("DELETE", "http://unix"+path, nil)
+	if err != nil {
+		return err
+	}
+	res, err := c.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	if res.StatusCode == 204 {
+		out = nil
+		return nil
+	}
+	return json.NewDecoder(res.Body).Decode(out)
+}

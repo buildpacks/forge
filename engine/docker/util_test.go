@@ -3,6 +3,7 @@ package docker_test
 import (
 	"io"
 	"net"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -10,12 +11,13 @@ import (
 )
 
 func containerFound(id string) bool {
-	// _, err := client.ContainerInspect(context.Background(), id)
-	// if err != nil {
-	// 	ExpectWithOffset(1, docker.IsErrNotFound(err)).To(BeTrue())
-	// 	return false
-	// }
-	// return true
+	txt, err := exec.Command("docker", "container", "ls", "-a", "--format={{.ID}}").Output()
+	Expect(err).To(BeNil())
+	for _, line := range strings.Split(string(txt), "\n") {
+		if line == id[:12] {
+			return true
+		}
+	}
 	return false
 }
 

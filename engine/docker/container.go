@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -94,10 +95,13 @@ func (c *container) ID() string {
 }
 
 func (c *container) Close() error {
-	// ctx := context.Background()
-	// return c.docker.ContainerRemove(ctx, c.id, types.ContainerRemoveOptions{
-	// 	Force: true,
-	// })
+	var response map[string]string
+	if err := c.docker.Delete(fmt.Sprintf("/containers/%s?force=true", c.id), &response); err != nil {
+		return err
+	}
+	if response != nil && response["message"] != "" {
+		return errors.New(response["message"])
+	}
 	return nil
 }
 
