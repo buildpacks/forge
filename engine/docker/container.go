@@ -61,11 +61,11 @@ func (e *engine) NewContainer(config *eng.ContainerConfig) (eng.Container, error
 	} else if config.Port != "" {
 		port := fmt.Sprintf("%s/tcp", config.Port)
 		contConfig.ExposedPorts = map[string]interface{}{port: struct{}{}}
-		contConfig.HostConfig.PortBindings = map[string]PortBindingConfig{
-			port: {
+		contConfig.HostConfig.PortBindings = map[string][]PortBindingConfig{
+			port: {{
 				HostIP:   config.HostIP,
 				HostPort: config.HostPort,
-			},
+			}},
 		}
 	}
 
@@ -80,13 +80,6 @@ func (e *engine) NewContainer(config *eng.ContainerConfig) (eng.Container, error
 
 	a, b := json.Marshal(contConfig)
 	fmt.Printf("JSON: %s\nERR: %v\n", a, b)
-
-	// ctx := context.Background()
-	// response, err := e.docker.ContainerCreate(ctx, contConfig, hostConfig, nil, fmt.Sprintf("%s-%s", config.Name, uuid))
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// return &container{exit, check, e.docker, response.ID, contConfig}, nil
 
 	response := struct {
 		ID string `json:"Id"`
