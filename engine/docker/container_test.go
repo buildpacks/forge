@@ -379,7 +379,7 @@ var _ = Describe("Container", func() {
 		})
 	})
 
-	FDescribe("#Commit", func() {
+	Describe("#Commit", func() {
 		It("should create an image using the state of the container", func() {
 			inBuffer := bytes.NewBufferString("some-data")
 			inStream := eng.NewStream(ioutil.NopCloser(inBuffer), int64(inBuffer.Len()))
@@ -416,7 +416,7 @@ var _ = Describe("Container", func() {
 		})
 	})
 
-	Describe("#UploadTarTo", func() {
+	FDescribe("#UploadTarTo", func() {
 		It("should copy a tarball into and out of the container and not close the input", func() {
 			tarBuffer := &bytes.Buffer{}
 			tarIn := tar.NewWriter(tarBuffer)

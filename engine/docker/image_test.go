@@ -5,11 +5,10 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	eng "github.com/buildpack/forge/engine"
 	gouuid "github.com/nu7hatch/gouuid"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
-	eng "github.com/buildpack/forge/engine"
 )
 
 var _ = Describe("Image", func() {
