@@ -351,7 +351,6 @@ var _ = Describe("Container", func() {
 		})
 	})
 
-	// DAVE is up to here TODO
 	Describe("#HealthCheck", func() {
 		Context("when the container reaches a healthy state", func() {
 			BeforeEach(func() {
@@ -378,7 +377,7 @@ var _ = Describe("Container", func() {
 		})
 	})
 
-	Describe("#Commit", func() {
+	PDescribe("#Commit", func() {
 		PIt("should create an image using the state of the container", func() {
 			// ctx := context.Background()
 			//
@@ -420,7 +419,7 @@ var _ = Describe("Container", func() {
 		})
 	})
 
-	Describe("#UploadTarTo", func() {
+	FDescribe("#UploadTarTo", func() {
 		It("should copy a tarball into and out of the container and not close the input", func() {
 			tarBuffer := &bytes.Buffer{}
 			tarIn := tar.NewWriter(tarBuffer)
@@ -527,7 +526,7 @@ var _ = Describe("Container", func() {
 		})
 	})
 
-	FDescribe("#StreamFileTo / #StreamFileFrom", func() {
+	Describe("#StreamFileTo / #StreamFileFrom", func() {
 		It("should copy the stream into the container and close it", func() {
 			inBuffer := bytes.NewBufferString("some-data")
 			inCloseTester := &closeTester{Reader: inBuffer}

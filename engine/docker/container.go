@@ -333,7 +333,6 @@ func (c *container) HealthCheck() <-chan string {
 	status := make(chan string)
 	go func() {
 		for {
-			fmt.Println("HEALTHCHECK LOOP")
 			select {
 			case <-c.exit:
 				return
@@ -342,7 +341,6 @@ func (c *container) HealthCheck() <-chan string {
 					State struct{ Health struct{ Status string } }
 				}
 				err := c.docker.Get(fmt.Sprintf("/containers/%s/json", c.id), &contJSON)
-				fmt.Printf("HEALTHCHECK: %#v\n", contJSON)
 				if err != nil || contJSON.State.Health.Status == "" {
 					status <- types.NoHealthcheck
 					continue
