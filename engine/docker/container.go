@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/url"
 	gopath "path"
 	"strconv"
 	"strings"
@@ -353,14 +354,27 @@ func (c *container) HealthCheck() <-chan string {
 }
 
 func (c *container) Commit(ref string) (imageID string, err error) {
-	// ctx := context.Background()
-	// response, err := c.docker.ContainerCommit(ctx, c.id, types.ContainerCommitOptions{
-	// 	Reference: ref,
-	// 	Pause:     true,
-	// 	Config:    c.config,
-	// })
-	// return response.ID, err
-	return "", nil
+	// TODO Should ref be parse into repo and tag
+	var res struct {
+		ID      string `json:"Id"`
+		Message string `json:"message"`
+	}
+	u := url.URL{
+		Path:     "/commit",
+		RawQuery: "pause=true",
+	}
+	q := u.Query()
+	q.Set("container", c.id)
+	q.Set("repo", ref)
+	u.RawQuery = q.Encode()
+	if err := c.docker.Post(u.String(), c.config, &res); err != nil {
+		return "", err
+	}
+	if res.Message != "" {
+		return "", errors.New(res.Message)
+	}
+
+	return res.ID, nil
 }
 
 func (c *container) UploadTarTo(tar io.Reader, path string) error {

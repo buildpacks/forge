@@ -59,6 +59,12 @@ func (c *Client) Post(path string, data interface{}, out interface{}) error {
 		if err != nil {
 			return errors.Wrap(err, "read http body")
 		}
+		var message struct {
+			Message string `json:"message"`
+		}
+		if err := json.Unmarshal(txt, &message); err == nil && message.Message != "" {
+			return errors.New(message.Message)
+		}
 		return fmt.Errorf("HTTP(%d) %s", res.StatusCode, txt)
 	}
 

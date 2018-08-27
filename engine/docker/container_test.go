@@ -8,11 +8,13 @@ import (
 	"io"
 	"io/ioutil"
 	"os/exec"
+	"strings"
 	"testing/iotest"
 	"time"
 
 	eng "github.com/buildpack/forge/engine"
 	"github.com/buildpack/forge/testutil"
+	gouuid "github.com/nu7hatch/gouuid"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
@@ -377,40 +379,35 @@ var _ = Describe("Container", func() {
 		})
 	})
 
-	PDescribe("#Commit", func() {
-		PIt("should create an image using the state of the container", func() {
-			// ctx := context.Background()
-			//
-			// inBuffer := bytes.NewBufferString("some-data")
-			// inStream := eng.NewStream(ioutil.NopCloser(inBuffer), int64(inBuffer.Len()))
-			// Expect(contr.StreamFileTo(inStream, "/some-path")).To(Succeed())
-			//
-			// uuid, err := gouuid.NewV4()
-			// Expect(err).NotTo(HaveOccurred())
-			// ref := fmt.Sprintf("some-ref-%s", uuid)
-			// id, err := contr.Commit(ref)
-			// Expect(err).NotTo(HaveOccurred())
-			// defer client.ImageRemove(ctx, id, types.ImageRemoveOptions{
-			// 	Force:         true,
-			// 	PruneChildren: true,
-			// })
-			//
-			// info, _, err := client.ImageInspectWithRaw(ctx, id)
-			// Expect(err).NotTo(HaveOccurred())
-			// Expect(info.Config.Hostname).To(Equal("test-container"))
-			//
-			// contr2, err := engine.NewContainer(&eng.ContainerConfig{
-			// 	Name:       "some-name",
-			// 	Image:      ref + ":latest",
-			// 	Entrypoint: []string{"bash"},
-			// })
-			// Expect(err).NotTo(HaveOccurred())
-			// defer contr2.Close()
-			//
-			// outStream, err := contr2.StreamFileFrom("/some-path")
-			// Expect(err).NotTo(HaveOccurred())
-			// Expect(ioutil.ReadAll(outStream)).To(Equal([]byte("some-data")))
-			// Expect(outStream.Size).To(Equal(inStream.Size))
+	FDescribe("#Commit", func() {
+		It("should create an image using the state of the container", func() {
+			inBuffer := bytes.NewBufferString("some-data")
+			inStream := eng.NewStream(ioutil.NopCloser(inBuffer), int64(inBuffer.Len()))
+			Expect(contr.StreamFileTo(inStream, "/some-path")).To(Succeed())
+
+			uuid, err := gouuid.NewV4()
+			Expect(err).NotTo(HaveOccurred())
+			ref := fmt.Sprintf("some-ref-%s", uuid)
+			id, err := contr.Commit(ref)
+			Expect(err).NotTo(HaveOccurred())
+			defer exec.Command("docker", "rmi", "-f", id).Run()
+
+			configHostname, err := exec.Command("docker", "inspect", id, "--format={{.Config.Hostname}}").Output()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(strings.TrimSpace(string(configHostname))).To(Equal("test-container"))
+
+			contr2, err := engine.NewContainer(&eng.ContainerConfig{
+				Name:       "some-name",
+				Image:      ref + ":latest",
+				Entrypoint: []string{"bash"},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			defer contr2.Close()
+
+			outStream, err := contr2.StreamFileFrom("/some-path")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ioutil.ReadAll(outStream)).To(Equal([]byte("some-data")))
+			Expect(outStream.Size).To(Equal(inStream.Size))
 		})
 
 		It("should return an error if committing fails", func() {
@@ -419,7 +416,7 @@ var _ = Describe("Container", func() {
 		})
 	})
 
-	FDescribe("#UploadTarTo", func() {
+	Describe("#UploadTarTo", func() {
 		It("should copy a tarball into and out of the container and not close the input", func() {
 			tarBuffer := &bytes.Buffer{}
 			tarIn := tar.NewWriter(tarBuffer)
