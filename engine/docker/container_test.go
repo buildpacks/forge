@@ -527,8 +527,8 @@ var _ = Describe("Container", func() {
 		})
 	})
 
-	Describe("#StreamFileTo / #StreamFileFrom", func() {
-		FIt("should copy the stream into the container and close it", func() {
+	FDescribe("#StreamFileTo / #StreamFileFrom", func() {
+		It("should copy the stream into the container and close it", func() {
 			inBuffer := bytes.NewBufferString("some-data")
 			inCloseTester := &closeTester{Reader: inBuffer}
 			inStream := eng.NewStream(inCloseTester, int64(inBuffer.Len()))
@@ -537,13 +537,11 @@ var _ = Describe("Container", func() {
 			Expect(inCloseTester.closed).To(BeTrue())
 
 			outStream, err := contr.StreamFileFrom("/some-path/some-file")
-			fmt.Println("Received data from /some-path/some-file")
 			Expect(err).NotTo(HaveOccurred())
 			defer outStream.Close()
 			Expect(ioutil.ReadAll(outStream)).To(Equal([]byte("some-data")))
 			Expect(outStream.Size).To(Equal(inStream.Size))
 			Expect(outStream.Close()).To(Succeed())
-			fmt.Println("End of Received data from /some-path/some-file")
 			// TODO: test closing of tar
 		}, 10)
 

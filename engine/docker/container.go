@@ -179,7 +179,7 @@ func (c *container) Start(logPrefix string, logs io.Writer, restart <-chan time.
 }
 
 func (c *container) attachLogs() (io.ReadCloser, error) {
-	statusCode, body, _, err := c.docker.Do("POST", fmt.Sprintf("/containers/%s/attach?logs=true&stream=true&stdout=true&stderr=true", c.id), nil)
+	statusCode, body, err := c.docker.Do("POST", fmt.Sprintf("/containers/%s/attach?logs=true&stream=true&stdout=true&stderr=true", c.id), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -366,7 +366,7 @@ func (c *container) Commit(ref string) (imageID string, err error) {
 }
 
 func (c *container) UploadTarTo(tar io.Reader, path string) error {
-	statusCode, body, _, err := c.docker.Do("PUT", fmt.Sprintf("/containers/%s/archive?path=%s", c.id, path), tar)
+	statusCode, body, err := c.docker.Do("PUT", fmt.Sprintf("/containers/%s/archive?path=%s", c.id, path), tar)
 	if err != nil || statusCode >= 400 {
 		return fmt.Errorf("UploadTarTo(%s): %s => %d, %v, %s\n", c.id, path, statusCode, err, body)
 	}
@@ -412,20 +412,19 @@ func (c *container) StreamFileFrom(path string) (eng.Stream, error) {
 	// }
 	// return eng.NewStream(splitReadCloser{reader, tar}, stat.Size), nil
 
-	statusCode, body, contentLength, err := c.docker.Do("GET", fmt.Sprintf("/containers/%s/archive?path=%s", c.id, path), nil)
+	statusCode, body, err := c.docker.Do("GET", fmt.Sprintf("/containers/%s/archive?path=%s", c.id, path), nil)
 	if err != nil || statusCode >= 400 {
 		if err == nil {
 			defer body.Close()
 		}
 		return eng.Stream{}, fmt.Errorf("StreamFileFrom(%s): %s => %d, %v, %s\n", c.id, path, statusCode, err, body)
 	}
-	fmt.Printf("StreamFileFrom: %s -> %d %d %v\n", path, statusCode, contentLength, err)
-	reader, _, err := fileFromTar(gopath.Base(path), body)
+	reader, hdr, err := fileFromTar(gopath.Base(path), body)
 	if err != nil {
 		body.Close()
 		return eng.Stream{}, err
 	}
-	return eng.NewStream(splitReadCloser{reader, body}, contentLength), nil
+	return eng.NewStream(splitReadCloser{reader, body}, hdr.Size), nil
 }
 
 func (c *container) StreamTarFrom(path string) (eng.Stream, error) {
