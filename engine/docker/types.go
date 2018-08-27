@@ -1,30 +1,30 @@
 package docker
 
 type CreateContainerConfig struct {
-	Hostname         string   `json:"Hostname"`
-	Domainname       string   `json:"Domainname"`
-	User             string   `json:"User"`
-	AttachStdin      bool     `json:"AttachStdin"`
-	AttachStdout     bool     `json:"AttachStdout"`
-	AttachStderr     bool     `json:"AttachStderr"`
-	Tty              bool     `json:"Tty"`
-	OpenStdin        bool     `json:"OpenStdin"`
-	StdinOnce        bool     `json:"StdinOnce"`
-	Env              []string `json:"Env"`
-	Cmd              []string `json:"Cmd"`
-	Healthcheck      *HealthConfig
-	Entrypoint       []string               `json:"Entrypoint"`
-	Image            string                 `json:"Image"`
-	Labels           map[string]string      `json:"Labels"`
-	Volumes          map[string]interface{} `json:"Volumes"`
-	WorkingDir       string                 `json:"WorkingDir"`
-	NetworkDisabled  bool                   `json:"NetworkDisabled"`
-	MacAddress       string                 `json:"MacAddress"`
-	ExposedPorts     map[string]interface{} `json:"ExposedPorts"`
-	StopSignal       string                 `json:"StopSignal"`
-	StopTimeout      int                    `json:"StopTimeout"`
-	HostConfig       HostConfig             `json:"HostConfig"`
-	NetworkingConfig NetworkingConfig       `json:"NetworkingConfig"`
+	Hostname        string   `json:"Hostname"`
+	Domainname      string   `json:"Domainname"`
+	User            string   `json:"User"`
+	AttachStdin     bool     `json:"AttachStdin"`
+	AttachStdout    bool     `json:"AttachStdout"`
+	AttachStderr    bool     `json:"AttachStderr"`
+	Tty             bool     `json:"Tty"`
+	OpenStdin       bool     `json:"OpenStdin"`
+	StdinOnce       bool     `json:"StdinOnce"`
+	Env             []string `json:"Env"`
+	Cmd             []string `json:"Cmd"`
+	Healthcheck     *HealthConfig
+	Entrypoint      []string               `json:"Entrypoint"`
+	Image           string                 `json:"Image"`
+	Labels          map[string]string      `json:"Labels"`
+	Volumes         map[string]interface{} `json:"Volumes"`
+	WorkingDir      string                 `json:"WorkingDir"`
+	NetworkDisabled bool                   `json:"NetworkDisabled"`
+	MacAddress      string                 `json:"MacAddress"`
+	ExposedPorts    map[string]interface{} `json:"ExposedPorts"`
+	StopSignal      string                 `json:"StopSignal"`
+	StopTimeout     int                    `json:"StopTimeout"`
+	HostConfig      HostConfig             `json:"HostConfig"`
+	// NetworkingConfig NetworkingConfig       `json:"NetworkingConfig"`
 }
 
 type HealthConfig struct {
@@ -97,19 +97,19 @@ type HostConfig struct {
 	ShmSize      int    `json:"ShmSize"`
 }
 
-type NetworkingConfig struct {
-	EndpointsConfig struct {
-		IsolatedNW struct {
-			IPAMConfig struct {
-				IPv4Address  string   `json:"IPv4Address"`
-				IPv6Address  string   `json:"IPv6Address"`
-				LinkLocalIPs []string `json:"LinkLocalIPs"`
-			} `json:"IPAMConfig"`
-			Links   []string `json:"Links"`
-			Aliases []string `json:"Aliases"`
-		} `json:"isolated_nw"`
-	} `json:"EndpointsConfig"`
-}
+// type NetworkingConfig struct {
+// 	EndpointsConfig struct {
+// 		IsolatedNW struct {
+// 			IPAMConfig struct {
+// 				IPv4Address  string   `json:"IPv4Address"`
+// 				IPv6Address  string   `json:"IPv6Address"`
+// 				LinkLocalIPs []string `json:"LinkLocalIPs"`
+// 			} `json:"IPAMConfig"`
+// 			Links   []string `json:"Links"`
+// 			Aliases []string `json:"Aliases"`
+// 		} `json:"isolated_nw"`
+// 	} `json:"EndpointsConfig"`
+// }
 
 type PortBindingConfig struct {
 	HostIP   string `json:"HostIp"`

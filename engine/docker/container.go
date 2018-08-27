@@ -5,11 +5,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	gopath "path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -117,8 +119,13 @@ func (c *container) CloseAfterStream(stream *eng.Stream) error {
 }
 
 func (c *container) Background() error {
-	// ctx := context.Background()
-	// return c.docker.ContainerStart(ctx, c.id, types.ContainerStartOptions{})
+	var response map[string]string
+	if err := c.docker.Post(fmt.Sprintf("/containers/%s/start", c.id), nil, &response); err != nil {
+		return err
+	}
+	if response != nil && response["message"] != "" {
+		return errors.New(response["message"])
+	}
 	return nil
 }
 
@@ -139,39 +146,68 @@ func (c *container) Start(logPrefix string, logs io.Writer, restart <-chan time.
 	// 		cancel()
 	// 	}
 	// }()
-	// logQueue := copyStreams(logs, logPrefix)
-	// defer close(logQueue)
-	//
-	// if err := c.docker.ContainerStart(ctx, c.id, types.ContainerStartOptions{}); err != nil {
-	// 	return 0, err
-	// }
-	// contLogs, err := c.docker.ContainerLogs(ctx, c.id, types.ContainerLogsOptions{
-	// 	ShowStdout: true,
-	// 	ShowStderr: true,
-	// 	Timestamps: true,
-	// 	Follow:     true,
-	// })
-	// if err != nil {
-	// 	return 0, err
-	// }
-	// logQueue <- contLogs
-	//
+
+	logQueue := copyStreams(logs, logPrefix)
+	defer close(logQueue)
+
+	if err := c.Background(); err != nil {
+		return 0, err
+	}
+
+	contLogs, err := c.attachLogs()
+	if err != nil {
+		return 0, err
+	}
+	logQueue <- contLogs
+
 	// if restart != nil {
 	// 	return c.restart(ctx, contLogs, logQueue, restart), nil
 	// }
-	// defer contLogs.Close()
-	//
-	// respC, errC := c.docker.ContainerWait(ctx, c.id, "")
-	// select {
-	// case resp := <-respC:
-	// 	if resp.Error != nil {
-	// 		return 0, errors.New(resp.Error.Message)
-	// 	}
-	// 	return resp.StatusCode, nil
-	// case err := <-errC:
-	// 	return 0, err
-	// }
-	return 0, nil
+	defer contLogs.Close()
+
+	return c.wait()
+}
+
+func (c *container) attachLogs() (io.ReadCloser, error) {
+	statusCode, body, err := c.docker.Do("POST", fmt.Sprintf("/containers/%s/attach?logs=true&stream=true&stdout=true&stderr=true", c.id), nil)
+	if err != nil {
+		return nil, err
+	}
+	if statusCode >= 400 {
+		defer body.Close()
+		var out struct{ message string }
+		if err := json.NewDecoder(body).Decode(&out); err != nil {
+			return nil, fmt.Errorf("status code: %d. Unkown error", statusCode)
+		}
+		return nil, errors.New(out.message)
+	}
+	return body, nil
+}
+
+func (c *container) wait() (status int64, err error) {
+	response := make(map[string]interface{})
+	if err := c.docker.Post(fmt.Sprintf("/containers/%s/wait", c.id), nil, &response); err != nil || response == nil {
+		return 0, err
+	}
+	if response["StatusCode"] != nil {
+		if response["Error"] != nil {
+			if e, ok := response["Error"].(map[string]interface{}); ok {
+				if message, ok := e["Message"].(string); ok {
+					return 0, errors.New(message)
+				}
+			}
+			return 0, fmt.Errorf("Unknown error: %#v", response)
+		}
+		exitCode, err := strconv.Atoi(fmt.Sprintf("%v", response["StatusCode"]))
+		if err != nil {
+			return 0, err
+		}
+		return int64(exitCode), nil
+	}
+	if response["message"] != nil {
+		return 0, fmt.Errorf("%s", response["message"])
+	}
+	return 0, fmt.Errorf("Unknown error: %#v", response)
 }
 
 func (c *container) restart(ctx context.Context, contLogs io.ReadCloser, logQueue chan<- io.Reader, restart <-chan time.Time) (status int64) {
@@ -424,4 +460,8 @@ func (c *closeWrapper) Close() (err error) {
 		}
 	}()
 	return c.ReadCloser.Close()
+}
+
+type readCloserTimestamp struct {
+	io.ReadCloser
 }

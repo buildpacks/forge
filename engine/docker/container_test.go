@@ -91,7 +91,7 @@ var _ = Describe("Container", func() {
 		})
 	})
 
-	FDescribe("#Close", func() {
+	Describe("#Close", func() {
 		It("should remove the container", func() {
 			Expect(containerFound(contr.ID())).To(BeTrue())
 			Expect(contr.Close()).To(Succeed())
@@ -180,8 +180,9 @@ var _ = Describe("Container", func() {
 					Expect(contr.Start("some-prefix", logs, nil)).To(Equal(int64(128)))
 				}()
 				Eventually(try(containerRunning, contr.ID())).Should(BeTrue())
-				Eventually(logs.Contents).Should(ContainSubstring("Z some-logs-stdout"))
-				Eventually(logs.Contents).Should(ContainSubstring("Z some-logs-stderr"))
+				logsString := func() string { return string(logs.Contents()) }
+				Eventually(logsString).Should(ContainSubstring("Z some-logs-stdout"))
+				Eventually(logsString).Should(ContainSubstring("Z some-logs-stderr"))
 			})
 		})
 
@@ -230,12 +231,12 @@ var _ = Describe("Container", func() {
 				}
 			})
 
-			It("should start the container, stream logs, and return status 0", func() {
+			FIt("should start the container, stream logs, and return status 0", func() {
 				logs := gbytes.NewBuffer()
 				Expect(contr.Start("some-prefix", logs, nil)).To(Equal(int64(0)))
 				Expect(containerRunning(contr.ID())).To(BeFalse())
-				Expect(logs.Contents()).To(ContainSubstring("Z some-logs-stdout"))
-				Expect(logs.Contents()).To(ContainSubstring("Z some-logs-stderr"))
+				Expect(string(logs.Contents())).To(ContainSubstring("Z some-logs-stdout"))
+				Expect(string(logs.Contents())).To(ContainSubstring("Z some-logs-stderr"))
 			})
 		})
 

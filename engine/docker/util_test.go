@@ -22,9 +22,14 @@ func containerFound(id string) bool {
 }
 
 func containerRunning(id string) bool {
-	// info, err := client.ContainerInspect(context.Background(), id)
-	// ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	// return info.State.Running
+	txt, err := exec.Command("docker", "container", "ls", "-a", "--format={{.ID}} {{.Status}}").Output()
+	Expect(err).To(BeNil())
+	for _, line := range strings.Split(string(txt), "\n") {
+		m := strings.SplitN(line, " ", 3)
+		if len(m) >= 2 && m[0] == id[:12] && m[1] == "Up" {
+			return true
+		}
+	}
 	return false
 }
 
