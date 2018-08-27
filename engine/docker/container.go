@@ -18,7 +18,6 @@ import (
 
 	eng "github.com/buildpack/forge/engine"
 	"github.com/buildpack/forge/engine/docker/httpsocket"
-	"github.com/moby/moby/api/types"
 	gouuid "github.com/nu7hatch/gouuid"
 )
 
@@ -343,7 +342,7 @@ func (c *container) HealthCheck() <-chan string {
 				}
 				err := c.docker.Get(fmt.Sprintf("/containers/%s/json", c.id), &contJSON)
 				if err != nil || contJSON.State.Health.Status == "" {
-					status <- types.NoHealthcheck
+					status <- "none"
 					continue
 				}
 				status <- contJSON.State.Health.Status
