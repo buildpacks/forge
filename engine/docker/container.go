@@ -17,6 +17,7 @@ import (
 
 	eng "github.com/buildpack/forge/engine"
 	"github.com/buildpack/forge/engine/docker/httpsocket"
+	"github.com/moby/moby/api/types"
 	gouuid "github.com/nu7hatch/gouuid"
 )
 
@@ -25,7 +26,7 @@ type container struct {
 	check  <-chan time.Time
 	docker *httpsocket.Client
 	id     string
-	config *CreateContainerConfig
+	config map[string]interface{}
 }
 
 func (e *engine) NewContainer(config *eng.ContainerConfig) (eng.Container, error) {
@@ -34,40 +35,48 @@ func (e *engine) NewContainer(config *eng.ContainerConfig) (eng.Container, error
 		return nil, err
 	}
 
-	contConfig := &CreateContainerConfig{
-		Hostname:   config.Hostname,
-		User:       config.User,
-		Image:      config.Image,
-		WorkingDir: config.WorkingDir,
-		Env:        append(e.proxyEnv(config), config.Env...),
-		Entrypoint: config.Entrypoint,
-		Cmd:        config.Cmd,
-		HostConfig: HostConfig{
-			Binds:  config.Binds,
-			Memory: int(config.Memory),
-			// 	DiskQuota: config.DiskQuota,
+	contConfig := map[string]interface{}{
+		"Hostname":   config.Hostname,
+		"User":       config.User,
+		"Image":      config.Image,
+		"WorkingDir": config.WorkingDir,
+		"Env":        append(e.proxyEnv(config), config.Env...),
+		"Entrypoint": config.Entrypoint,
+		"Cmd":        config.Cmd,
+		"HostConfig": map[string]interface{}{
+			"Binds":  config.Binds,
+			"Memory": int(config.Memory),
+			// "DiskQuota": config.DiskQuota,
 		},
 	}
 	if len(config.Test) > 0 {
-		contConfig.Healthcheck = &HealthConfig{
-			Test:        config.Test,
-			Interval:    config.Interval.Nanoseconds(),
-			Timeout:     config.Timeout.Nanoseconds(),
-			StartPeriod: config.StartPeriod.Nanoseconds(),
-			Retries:     config.Retries,
+		contConfig["Healthcheck"] = map[string]interface{}{
+			"Test":        config.Test,
+			"Interval":    config.Interval.Nanoseconds(),
+			"Timeout":     config.Timeout.Nanoseconds(),
+			"StartPeriod": config.StartPeriod.Nanoseconds(),
+			"Retries":     config.Retries,
 		}
 	}
 	if config.NetContainer != "" {
-		contConfig.Hostname = ""
-		contConfig.HostConfig.NetworkMode = "container:" + config.NetContainer
+		contConfig["Hostname"] = ""
+		if hc, ok := contConfig["HostConfig"].(map[string]interface{}); ok {
+			hc["NetworkMode"] = "container:" + config.NetContainer
+		} else {
+			return nil, errors.New("could not set HostConfig NetworkMode")
+		}
 	} else if config.Port != "" {
 		port := fmt.Sprintf("%s/tcp", config.Port)
-		contConfig.ExposedPorts = map[string]interface{}{port: struct{}{}}
-		contConfig.HostConfig.PortBindings = map[string][]PortBindingConfig{
-			port: {{
-				HostIP:   config.HostIP,
-				HostPort: config.HostPort,
-			}},
+		contConfig["ExposedPorts"] = map[string]interface{}{port: struct{}{}}
+		if hc, ok := contConfig["HostConfig"].(map[string]interface{}); ok {
+			hc["PortBindings"] = map[string][]map[string]interface{}{
+				port: {{
+					"HostIP":   config.HostIP,
+					"HostPort": config.HostPort,
+				}},
+			}
+		} else {
+			return nil, errors.New("could not set HostConfig NetworkMode")
 		}
 	}
 
@@ -98,12 +107,13 @@ func (c *container) ID() string {
 
 func (c *container) Close() error {
 	var response map[string]string
-	if err := c.docker.Delete(fmt.Sprintf("/containers/%s?force=true", c.id), &response); err != nil {
+	if err := c.docker.Delete(fmt.Sprintf("/containers/%s?force=true", c.id[:12]), &response); err != nil {
 		return err
 	}
 	if response != nil && response["message"] != "" {
 		return errors.New(response["message"])
 	}
+
 	return nil
 }
 
@@ -169,7 +179,7 @@ func (c *container) Start(logPrefix string, logs io.Writer, restart <-chan time.
 }
 
 func (c *container) attachLogs() (io.ReadCloser, error) {
-	statusCode, body, err := c.docker.Do("POST", fmt.Sprintf("/containers/%s/attach?logs=true&stream=true&stdout=true&stderr=true", c.id), nil)
+	statusCode, body, _, err := c.docker.Do("POST", fmt.Sprintf("/containers/%s/attach?logs=true&stream=true&stdout=true&stderr=true", c.id), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -321,22 +331,26 @@ func (c *container) Shell(tty eng.TTY, shell ...string) (err error) {
 
 func (c *container) HealthCheck() <-chan string {
 	status := make(chan string)
-	// go func() {
-	// 	ctx := context.Background()
-	// 	for {
-	// 		select {
-	// 		case <-c.exit:
-	// 			return
-	// 		case <-c.check:
-	// 			contJSON, err := c.docker.ContainerInspect(ctx, c.id)
-	// 			if err != nil || contJSON.State == nil || contJSON.State.Health == nil {
-	// 				status <- types.NoHealthcheck
-	// 				continue
-	// 			}
-	// 			status <- contJSON.State.Health.Status
-	// 		}
-	// 	}
-	// }()
+	go func() {
+		for {
+			fmt.Println("HEALTHCHECK LOOP")
+			select {
+			case <-c.exit:
+				return
+			case <-c.check:
+				var contJSON struct {
+					State struct{ Health struct{ Status string } }
+				}
+				err := c.docker.Get(fmt.Sprintf("/containers/%s/json", c.id), &contJSON)
+				fmt.Printf("HEALTHCHECK: %#v\n", contJSON)
+				if err != nil || contJSON.State.Health.Status == "" {
+					status <- types.NoHealthcheck
+					continue
+				}
+				status <- contJSON.State.Health.Status
+			}
+		}
+	}()
 	return status
 }
 
@@ -352,8 +366,11 @@ func (c *container) Commit(ref string) (imageID string, err error) {
 }
 
 func (c *container) UploadTarTo(tar io.Reader, path string) error {
-	// ctx := context.Background()
-	// return c.docker.CopyToContainer(ctx, c.id, path, onlyReader(tar), types.CopyToContainerOptions{})
+	statusCode, body, _, err := c.docker.Do("PUT", fmt.Sprintf("/containers/%s/archive?path=%s", c.id, path), tar)
+	if err != nil || statusCode >= 400 {
+		return fmt.Errorf("UploadTarTo(%s): %s => %d, %v, %s\n", c.id, path, statusCode, err, body)
+	}
+
 	return nil
 }
 
@@ -394,7 +411,21 @@ func (c *container) StreamFileFrom(path string) (eng.Stream, error) {
 	// 	return eng.Stream{}, err
 	// }
 	// return eng.NewStream(splitReadCloser{reader, tar}, stat.Size), nil
-	return eng.Stream{}, nil
+
+	statusCode, body, contentLength, err := c.docker.Do("GET", fmt.Sprintf("/containers/%s/archive?path=%s", c.id, path), nil)
+	if err != nil || statusCode >= 400 {
+		if err == nil {
+			defer body.Close()
+		}
+		return eng.Stream{}, fmt.Errorf("StreamFileFrom(%s): %s => %d, %v, %s\n", c.id, path, statusCode, err, body)
+	}
+	fmt.Printf("StreamFileFrom: %s -> %d %d %v\n", path, statusCode, contentLength, err)
+	reader, _, err := fileFromTar(gopath.Base(path), body)
+	if err != nil {
+		body.Close()
+		return eng.Stream{}, err
+	}
+	return eng.NewStream(splitReadCloser{reader, body}, contentLength), nil
 }
 
 func (c *container) StreamTarFrom(path string) (eng.Stream, error) {
