@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -72,7 +73,7 @@ func (c *Client) Post(path string, data interface{}, out interface{}) error {
 }
 
 func (c *Client) Delete(path string, out interface{}) error {
-	statusCode, body, err := c.Do("DELETE", path, nil)
+	statusCode, body, _, err := c.Do("DELETE", path, nil)
 	if err != nil {
 		return err
 	}
@@ -83,24 +84,26 @@ func (c *Client) Delete(path string, out interface{}) error {
 		return nil
 	}
 
-	// txt, err := ioutil.ReadAll(body)
-	// if err != nil {
-	// 	return errors.Wrap(err, "read http body")
-	// }
-	// fmt.Println("BODY", err, string(txt))
-	// body = ioutil.NopCloser(bytes.NewReader(txt))
-
 	return json.NewDecoder(body).Decode(out)
 }
 
-func (c *Client) Do(method, path string, body io.Reader) (int, io.ReadCloser, error) {
+func (c *Client) Do(method, path string, body io.Reader) (int, io.ReadCloser, int64, error) {
 	req, err := http.NewRequest(method, "http://unix"+path, body)
 	if err != nil {
-		return 0, nil, err
+		return 0, nil, -1, err
 	}
 	res, err := c.client.Do(req)
 	if err != nil {
-		return 0, nil, err
+		return 0, nil, -1, err
 	}
-	return res.StatusCode, res.Body, nil
+
+	var contentLength int64 = -1
+	if res.Header.Get("Content-Length") != "" {
+		// fmt.Println("HEADER:", path, res.Header.Get("Content-Length"))
+		if i, err := strconv.Atoi(res.Header.Get("Content-Length")); err == nil {
+			contentLength = int64(i)
+		}
+	}
+
+	return res.StatusCode, res.Body, contentLength, nil
 }

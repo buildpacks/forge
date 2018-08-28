@@ -27,7 +27,7 @@ func (t testTTY) Run(remoteIn io.Reader, remoteOut io.WriteCloser, resize func(h
 	return t(remoteIn, remoteOut, resize)
 }
 
-var _ = Describe("Container", func() {
+var _ = FDescribe("Container", func() {
 	var (
 		contr      eng.Container
 		config     *eng.ContainerConfig
@@ -379,7 +379,7 @@ var _ = Describe("Container", func() {
 		})
 	})
 
-	Describe("#Commit", func() {
+	FDescribe("#Commit", func() {
 		It("should create an image using the state of the container", func() {
 			inBuffer := bytes.NewBufferString("some-data")
 			inStream := eng.NewStream(ioutil.NopCloser(inBuffer), int64(inBuffer.Len()))
@@ -408,15 +408,15 @@ var _ = Describe("Container", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(ioutil.ReadAll(outStream)).To(Equal([]byte("some-data")))
 			Expect(outStream.Size).To(Equal(inStream.Size))
-		})
+		}, 1.0)
 
 		It("should return an error if committing fails", func() {
 			_, err := contr.Commit("$%^some-ref")
 			Expect(err).To(MatchError("invalid reference format"))
-		})
+		}, 1.0)
 	})
 
-	FDescribe("#UploadTarTo", func() {
+	Describe("#UploadTarTo", func() {
 		It("should copy a tarball into and out of the container and not close the input", func() {
 			tarBuffer := &bytes.Buffer{}
 			tarIn := tar.NewWriter(tarBuffer)
@@ -455,8 +455,13 @@ var _ = Describe("Container", func() {
 		})
 
 		It("should return an error if copying in fails", func() {
-			err := contr.UploadTarTo(nil, "/some-bad-path")
+			err := contr.UploadTarTo(&bytes.Buffer{}, "/some-bad-path")
 			Expect(err).To(MatchError(ContainSubstring("some-bad-path")))
+		})
+
+		It("should return an error if reader is nil", func() {
+			err := contr.UploadTarTo(nil, "/root")
+			Expect(err).To(MatchError("tar reader is nil"))
 		})
 	})
 
