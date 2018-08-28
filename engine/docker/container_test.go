@@ -362,7 +362,8 @@ var _ = FDescribe("Container", func() {
 		Context("when the container reaches a healthy state", func() {
 			BeforeEach(func() {
 				exit, check = make(chan struct{}), make(chan time.Time, 1)
-				entrypoint = []string{"tail", "-f", "/dev/null"}
+				// entrypoint = []string{"tail", "-f", "/dev/null"}
+				entrypoint = []string{"sh", "-c", "sleep 60"} // FIMXE why is the above a problem for dave but not stephen
 				healthTest = []string{"CMD", "test", "-f", "/tmp/healthy"}
 			})
 
