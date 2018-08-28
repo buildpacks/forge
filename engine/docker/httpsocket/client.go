@@ -38,25 +38,26 @@ func (c *Client) Get(path string, out interface{}) error {
 	return json.NewDecoder(res.Body).Decode(out)
 }
 
-func (c *Client) Post(path string, data interface{}, out interface{}) error {
+func (c *Client) Post(path string, data interface{}, out interface{}, ctx context.Context) error {
 	bData, err := json.Marshal(data)
 	if err != nil {
 		return errors.Wrap(err, "json marshal")
 	}
-	res, err := c.client.Post("http://unix"+path, "application/json", strings.NewReader(string(bData)))
+
+	statusCode, body, _, err := c.Do("POST", path, strings.NewReader(string(bData)), ctx)
 	if err != nil {
 		return errors.Wrap(err, "http post")
 	}
-	defer res.Body.Close()
+	defer body.Close()
 
-	if res.StatusCode == 204 {
+	if statusCode == 204 {
 		// FIXME how to actually clear it
 		out = nil
 		return nil
 	}
 
-	if res.StatusCode >= 500 {
-		txt, err := ioutil.ReadAll(res.Body)
+	if statusCode >= 500 {
+		txt, err := ioutil.ReadAll(body)
 		if err != nil {
 			return errors.Wrap(err, "read http body")
 		}
@@ -66,14 +67,14 @@ func (c *Client) Post(path string, data interface{}, out interface{}) error {
 		if err := json.Unmarshal(txt, &message); err == nil && message.Message != "" {
 			return errors.New(message.Message)
 		}
-		return fmt.Errorf("HTTP(%d) %s", res.StatusCode, txt)
+		return fmt.Errorf("HTTP(%d) %s", statusCode, txt)
 	}
 
-	return json.NewDecoder(res.Body).Decode(out)
+	return json.NewDecoder(body).Decode(out)
 }
 
 func (c *Client) Delete(path string, out interface{}) error {
-	statusCode, body, _, err := c.Do("DELETE", path, nil)
+	statusCode, body, _, err := c.Do("DELETE", path, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -87,11 +88,17 @@ func (c *Client) Delete(path string, out interface{}) error {
 	return json.NewDecoder(body).Decode(out)
 }
 
-func (c *Client) Do(method, path string, body io.Reader) (int, io.ReadCloser, int64, error) {
+func (c *Client) Do(method, path string, body io.Reader, ctx context.Context) (int, io.ReadCloser, int64, error) {
 	req, err := http.NewRequest(method, "http://unix"+path, body)
 	if err != nil {
 		return 0, nil, -1, err
 	}
+	req.Header.Set("Content-Type", "application/json")
+
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+
 	res, err := c.client.Do(req)
 	if err != nil {
 		return 0, nil, -1, err

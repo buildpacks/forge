@@ -67,10 +67,15 @@ var _ = FDescribe("Container", func() {
 	})
 
 	AfterEach(func() {
+		fmt.Println("DG AfterEach: 1")
 		if containerFound(contr.ID()) {
+			fmt.Println("DG AfterEach: 2")
 			Expect(contr.Close()).To(Succeed())
+			fmt.Println("DG AfterEach: 3")
 			Expect(containerFound(contr.ID())).To(BeFalse())
+			fmt.Println("DG AfterEach: 4")
 		}
+		fmt.Println("DG AfterEach: 5")
 	})
 
 	// TODO: exhaustive test of options
@@ -353,7 +358,7 @@ var _ = FDescribe("Container", func() {
 		})
 	})
 
-	Describe("#HealthCheck", func() {
+	FDescribe("#HealthCheck", func() {
 		Context("when the container reaches a healthy state", func() {
 			BeforeEach(func() {
 				exit, check = make(chan struct{}), make(chan time.Time, 1)
@@ -362,24 +367,35 @@ var _ = FDescribe("Container", func() {
 			})
 
 			It("should report the container health", func() {
+				fmt.Println("DG HEALTHCHECK 1")
 				healthCheck := contr.HealthCheck()
 				Expect(changesStatus(check, healthCheck, "none")).To(BeTrue())
 
+				fmt.Println("DG HEALTHCHECK 2")
 				Expect(contr.Background()).To(Succeed())
 				Expect(changesStatus(check, healthCheck, "starting")).To(BeTrue())
 
+				fmt.Println("DG HEALTHCHECK 3")
 				empty := eng.NewStream(ioutil.NopCloser(bytes.NewBufferString("\n")), 1)
 				Expect(contr.StreamFileTo(empty, "/tmp/healthy")).To(Succeed())
 				Expect(changesStatus(check, healthCheck, "healthy")).To(BeTrue())
 
+				fmt.Println("DG HEALTHCHECK 4")
 				exit <- struct{}{}
-				check <- time.Time{}
+				fmt.Println("DG HEALTHCHECK 5")
+				select {
+				case check <- time.Time{}:
+				default:
+					fmt.Println("Channel (check) full. Discard")
+				}
+				fmt.Println("DG HEALTHCHECK 6")
 				Consistently(healthCheck).ShouldNot(Receive())
-			}, 4)
+				fmt.Println("DG HEALTHCHECK 7")
+			})
 		})
 	})
 
-	FDescribe("#Commit", func() {
+	Describe("#Commit", func() {
 		It("should create an image using the state of the container", func() {
 			inBuffer := bytes.NewBufferString("some-data")
 			inStream := eng.NewStream(ioutil.NopCloser(inBuffer), int64(inBuffer.Len()))

@@ -94,7 +94,7 @@ func (e *engine) NewContainer(config *eng.ContainerConfig) (eng.Container, error
 		// TODO do something with warnings
 		Warnings string
 	}{}
-	if err := e.docker.Post(fmt.Sprintf("/containers/create?name=%s-%s", config.Name, uuid), contConfig, &response); err != nil {
+	if err := e.docker.Post(fmt.Sprintf("/containers/create?name=%s-%s", config.Name, uuid), contConfig, &response, nil); err != nil {
 		return &container{}, err
 	}
 
@@ -107,9 +107,13 @@ func (c *container) ID() string {
 
 func (c *container) Close() error {
 	var response map[string]string
+	fmt.Println("DG Close 1")
+	fmt.Println("DG Close 2")
 	if err := c.docker.Delete(fmt.Sprintf("/containers/%s?force=true", c.id[:12]), &response); err != nil {
+		fmt.Println("DG Close 3", err)
 		return err
 	}
+	fmt.Println("DG Close 4")
 	if response != nil && response["message"] != "" {
 		return errors.New(response["message"])
 	}
@@ -129,45 +133,55 @@ func (c *container) CloseAfterStream(stream *eng.Stream) error {
 }
 
 func (c *container) Background() error {
+	fmt.Println("DG Background 1")
 	var response map[string]string
-	if err := c.docker.Post(fmt.Sprintf("/containers/%s/start", c.id), nil, &response); err != nil {
+	if err := c.docker.Post(fmt.Sprintf("/containers/%s/start", c.id), nil, &response, nil); err != nil {
 		return err
 	}
 	if response != nil && response["message"] != "" {
 		return errors.New(response["message"])
 	}
+	fmt.Println("DG Background 2")
 	return nil
 }
 
 func (c *container) Start(logPrefix string, logs io.Writer, restart <-chan time.Time) (status int64, err error) {
-	// defer func() {
-	// 	if isErrCanceled(err) {
-	// 		status, err = 128, nil
-	// 	}
-	// }()
-	// done := make(chan struct{})
-	// defer close(done)
-	// ctx, cancel := context.WithCancel(context.Background())
-	// go func() {
-	// 	select {
-	// 	case <-done:
-	// 		cancel()
-	// 	case <-c.exit:
-	// 		cancel()
-	// 	}
-	// }()
+	fmt.Println("CALLED START")
 
+	defer func() {
+		if isErrCanceled(err) {
+			status, err = 128, nil
+		}
+	}()
+	done := make(chan struct{})
+	defer close(done)
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		select {
+		case <-done:
+			fmt.Println("START RECEIVED DONE")
+			cancel()
+		case <-c.exit:
+			fmt.Println("START RECEIVED EXIT")
+			cancel()
+		}
+	}()
+
+	fmt.Println("DG START 1")
 	logQueue := copyStreams(logs, logPrefix)
 	defer close(logQueue)
 
+	fmt.Println("DG START 2")
 	if err := c.Background(); err != nil {
 		return 0, err
 	}
 
-	contLogs, err := c.attachLogs()
+	fmt.Println("DG START 3")
+	contLogs, err := c.attachLogs(ctx)
 	if err != nil {
 		return 0, err
 	}
+	fmt.Println("DG START 4")
 	logQueue <- contLogs
 
 	// if restart != nil {
@@ -175,14 +189,16 @@ func (c *container) Start(logPrefix string, logs io.Writer, restart <-chan time.
 	// }
 	defer contLogs.Close()
 
-	return c.wait()
+	fmt.Println("DG START 5")
+	return c.wait(ctx)
 }
 
-func (c *container) attachLogs() (io.ReadCloser, error) {
-	statusCode, body, _, err := c.docker.Do("POST", fmt.Sprintf("/containers/%s/attach?logs=true&stream=true&stdout=true&stderr=true", c.id), nil)
+func (c *container) attachLogs(ctx context.Context) (io.ReadCloser, error) {
+	statusCode, body, _, err := c.docker.Do("POST", fmt.Sprintf("/containers/%s/attach?logs=true&stream=true&stdout=true&stderr=true", c.id), nil, ctx)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("Attach Logs:", statusCode)
 	if statusCode >= 400 {
 		defer body.Close()
 		var out struct{ message string }
@@ -194,11 +210,13 @@ func (c *container) attachLogs() (io.ReadCloser, error) {
 	return body, nil
 }
 
-func (c *container) wait() (status int64, err error) {
+func (c *container) wait(ctx context.Context) (status int64, err error) {
+	fmt.Println("DG WAIT 1")
 	response := make(map[string]interface{})
-	if err := c.docker.Post(fmt.Sprintf("/containers/%s/wait", c.id), nil, &response); err != nil || response == nil {
+	if err := c.docker.Post(fmt.Sprintf("/containers/%s/wait", c.id), nil, &response, ctx); err != nil || response == nil {
 		return 0, err
 	}
+	fmt.Println("WAIT FINISHED:", err, response)
 	if response["StatusCode"] != nil {
 		if response["Error"] != nil {
 			if e, ok := response["Error"].(map[string]interface{}); ok {
@@ -335,12 +353,14 @@ func (c *container) HealthCheck() <-chan string {
 		for {
 			select {
 			case <-c.exit:
+				fmt.Println("HEALTHCHECK RECEIVED EXIT")
 				return
 			case <-c.check:
 				var contJSON struct {
 					State struct{ Health struct{ Status string } }
 				}
 				err := c.docker.Get(fmt.Sprintf("/containers/%s/json", c.id), &contJSON)
+				fmt.Println("SEND HEALTHCHECK:", err, contJSON.State.Health.Status)
 				if err != nil || contJSON.State.Health.Status == "" {
 					status <- "none"
 					continue
@@ -366,7 +386,7 @@ func (c *container) Commit(ref string) (imageID string, err error) {
 	q.Set("container", c.id)
 	q.Set("repo", ref)
 	u.RawQuery = q.Encode()
-	if err := c.docker.Post(u.String(), c.config, &res); err != nil {
+	if err := c.docker.Post(u.String(), c.config, &res, nil); err != nil {
 		return "", err
 	}
 	if res.Message != "" {
@@ -381,7 +401,7 @@ func (c *container) UploadTarTo(tar io.Reader, path string) error {
 		return errors.New("tar reader is nil")
 	}
 	tar = ioutil.NopCloser(tar)
-	statusCode, body, _, err := c.docker.Do("PUT", fmt.Sprintf("/containers/%s/archive?path=%s", c.id, path), tar)
+	statusCode, body, _, err := c.docker.Do("PUT", fmt.Sprintf("/containers/%s/archive?path=%s", c.id, path), tar, nil)
 	if err != nil || statusCode >= 400 {
 		return fmt.Errorf("UploadTarTo(%s): %s => %d, %v, %s\n", c.id, path, statusCode, err, body)
 	}
@@ -427,7 +447,7 @@ func (c *container) StreamFileFrom(path string) (eng.Stream, error) {
 	// }
 	// return eng.NewStream(splitReadCloser{reader, tar}, stat.Size), nil
 
-	statusCode, body, _, err := c.docker.Do("GET", fmt.Sprintf("/containers/%s/archive?path=%s", c.id, path), nil)
+	statusCode, body, _, err := c.docker.Do("GET", fmt.Sprintf("/containers/%s/archive?path=%s", c.id, path), nil, nil)
 	if err != nil || statusCode >= 400 {
 		if err == nil {
 			defer body.Close()
@@ -450,7 +470,7 @@ func (c *container) StreamTarFrom(path string) (eng.Stream, error) {
 	// }
 	// return eng.NewStream(tar, stat.Size), nil
 
-	statusCode, body, contentLength, err := c.docker.Do("GET", fmt.Sprintf("/containers/%s/archive?path=%s", c.id, path+"/."), nil)
+	statusCode, body, contentLength, err := c.docker.Do("GET", fmt.Sprintf("/containers/%s/archive?path=%s", c.id, path+"/."), nil, nil)
 	if err != nil || statusCode >= 400 {
 		if err == nil {
 			defer body.Close()
