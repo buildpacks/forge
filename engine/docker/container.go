@@ -17,10 +17,10 @@ import (
 	cont "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/strslice"
 	docker "github.com/docker/docker/client"
+	"github.com/docker/go-connections/nat"
 	gouuid "github.com/nu7hatch/gouuid"
 
 	eng "github.com/buildpack/forge/engine"
-	"github.com/docker/go-connections/nat"
 )
 
 type container struct {
