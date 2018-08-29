@@ -3,7 +3,7 @@ language: go
 services:
 - docker
 go:
-- go1.11rc1
+- 1.11.x
 env:
 - GO111MODULE=on
 install:
