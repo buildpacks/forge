@@ -29,6 +29,7 @@ type ContainerConfig struct {
 	SkipProxy  bool
 
 	// External
+	Volumes      []string
 	Binds        []string
 	NetContainer string
 	HostIP       string

@@ -53,6 +53,13 @@ func (e *engine) NewContainer(config *eng.ContainerConfig) (eng.Container, error
 			DiskQuota: config.DiskQuota,
 		},
 	}
+	if len(config.Volumes) > 0 {
+		// Volumes         map[string]struct{} // List of volumes (mounts) used for the container
+		contConfig.Volumes = make(map[string]struct{})
+		for _, volume := range config.Volumes {
+			contConfig.Volumes[volume] = struct{}{}
+		}
+	}
 	if len(config.Test) > 0 {
 		contConfig.Healthcheck = &cont.HealthConfig{
 			Test:        config.Test,
