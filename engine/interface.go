@@ -9,6 +9,7 @@ type Engine interface {
 	NewContainer(config *ContainerConfig) (Container, error)
 	NewImage() Image
 	Close() error
+	RemoveVolume(string) error
 }
 
 type Container interface {

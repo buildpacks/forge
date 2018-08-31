@@ -68,6 +68,7 @@ require (
 	github.com/opentracing/opentracing-go v0.0.0-20171003133519-1361b9cd60be
 	github.com/peterbourgon/diskv v2.0.1+incompatible
 	github.com/pkg/errors v0.0.0-20161002052512-839d9e913e06
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_golang v0.0.0-20160802072246-52437c81da6b
 	github.com/prometheus/client_model v0.0.0-20150212101744-fa8ad6fec335
 	github.com/prometheus/common v0.0.0-20160801171955-ebdfc6da4652
@@ -77,6 +78,7 @@ require (
 	github.com/sirupsen/logrus v1.0.3
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/pflag v1.0.1
+	github.com/stretchr/testify v1.2.2 // indirect
 	github.com/theupdateframework/notary v0.6.1
 	github.com/tonistiigi/fsutil v0.0.0-20180610154556-8abad97ee396
 	github.com/tonistiigi/units v0.0.0-20180711220420-6950e57a87ea
