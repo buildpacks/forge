@@ -2,12 +2,15 @@ module github.com/buildpack/forge
 
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78
+	github.com/BurntSushi/toml v0.3.0
 	github.com/Microsoft/go-winio v0.4.8
 	github.com/Nvveen/Gotty v0.0.0-20170406111628-a8b993ba6abd
 	github.com/PuerkitoBio/purell v1.0.0
 	github.com/PuerkitoBio/urlesc v0.0.0-20160726150825-5bd2802263f2
 	github.com/agl/ed25519 v0.0.0-20140907235247-d2b94fd789ea
 	github.com/beorn7/perks v0.0.0-20160804104726-4c0e84591b9a
+	github.com/buildpack/lifecycle v0.0.0-20180824184310-a8b0016ee8b0
+	github.com/buildpack/packs v0.0.0-20180827215710-e1449e47b4d4
 	github.com/containerd/console v0.0.0-20180703212128-5d1b48d6114b
 	github.com/containerd/containerd v0.0.0-20180706181834-b41633746ed4
 	github.com/containerd/continuity v0.0.0-20180524210603-d3c23511c1bf
@@ -37,8 +40,10 @@ require (
 	github.com/golang/protobuf v1.1.0
 	github.com/google/btree v0.0.0-20161217183710-316fb6d3f031
 	github.com/google/go-cmp v0.2.0
+	github.com/google/go-containerregistry v0.0.0-20180829201920-2f3e3e1a55fb // indirect
 	github.com/google/gofuzz v0.0.0-20161122191042-44d81051d367
 	github.com/google/shlex v0.0.0-20150127133951-6f45313302b9
+	github.com/google/uuid v1.0.0
 	github.com/googleapis/gnostic v0.0.0-20170717235551-e4f56557df62
 	github.com/gorilla/context v0.0.0-20160226214623-1ea25387ff6f
 	github.com/gorilla/mux v0.0.0-20160317213430-0eeaf8392f5b
