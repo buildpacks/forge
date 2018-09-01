@@ -1,6 +1,8 @@
 package v3
 
 import (
+	"archive/tar"
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -104,9 +106,32 @@ func (b *Builder) Analyze(repoName string, useDaemon bool, group lifecycle.Build
 		return packs.FailErrCode(err, packs.CodeFailedBuild)
 	}
 
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+	defer tw.Close()
 	globs, err := filepath.Glob(filepath.Join(tmpDir, "*", "*.toml"))
+	if err != nil {
+		return err
+	}
+	for _, glob := range globs {
+		txt, err := ioutil.ReadFile(glob)
+		if err != nil {
+			return err
+		}
+		hdr := &tar.Header{
+			Name: filepath.Join("/launch", filepath.Base(filepath.Dir(glob)), filepath.Base(glob)),
+			Mode: 0666,
+			Size: int64(len(txt)),
+		}
+		if err := tw.WriteHeader(hdr); err != nil {
+			return err
+		}
+		if _, err := tw.Write([]byte(txt)); err != nil {
+			return err
+		}
+	}
 
-	return b.LaunchVolume.Upload(tmpDir, "/launch")
+	return b.LaunchVolume.Upload(bytes.NewReader(buf.Bytes()))
 }
 
 func (b *Builder) Build(group lifecycle.BuildpackGroup) error {
