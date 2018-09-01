@@ -9,7 +9,7 @@ type Engine interface {
 	NewContainer(config *ContainerConfig) (Container, error)
 	NewImage() Image
 	Close() error
-	RemoveVolume(string) error
+	NewVolume(name, mountPath, image string) Volume
 }
 
 type Container interface {
@@ -34,6 +34,13 @@ type Image interface {
 	Pull(ref string) <-chan Progress
 	Push(ref string, creds RegistryCreds) <-chan Progress
 	Delete(id string) error
+}
+
+type Volume interface {
+	io.Closer
+	Upload(tr io.Reader) error
+	Export(path string) (io.ReadCloser, error)
+	String() string
 }
 
 type TTY interface {
