@@ -1,6 +1,7 @@
 package docker_test
 
 import (
+	"bytes"
 	"context"
 	"io/ioutil"
 	"testing"
@@ -33,6 +34,17 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	body, err := client.ImagePull(ctx, "sclevine/test", types.ImagePullOptions{})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(ioutil.ReadAll(body)).NotTo(BeZero())
+
+	dockerfile := bytes.NewBufferString(`
+		FROM sclevine/test
+		RUN adduser -u 1000 -s /bin/sh -S packs
+		USER packs
+	`)
+	dockerfileStream := eng.NewStream(ioutil.NopCloser(dockerfile), int64(dockerfile.Len()))
+	progress := engine.NewImage().Build("my-org/tester", dockerfileStream)
+	for p := range progress {
+		Expect(p).ToNot(BeNil())
+	}
 
 	return nil
 }, func(_ []byte) {

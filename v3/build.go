@@ -12,6 +12,7 @@ import (
 	eng "github.com/buildpack/forge/engine"
 	"github.com/buildpack/lifecycle"
 	"github.com/buildpack/packs"
+	"github.com/buildpack/packs/img"
 )
 
 type Builder struct {
@@ -148,63 +149,63 @@ func (b *Builder) Build(group lifecycle.BuildpackGroup) error {
 	return err
 }
 
-// func (b *Builder) Export(group lifecycle.BuildpackGroup) (string, error) {
-// 	tmpDir, err := b.tmpDir("Export")
-// 	if err != nil {
-// 		return "", err
-// 	}
-//
-// 	localLaunchDir, err := b.ExportVolume("/launch")
-// 	if err != nil {
-// 		return "", err
-// 	}
-//
-// 	origImage, err := readImage(b.RepoName, !b.Publish)
-// 	if err != nil {
-// 		return "", err
-// 	}
-//
-// 	stackImage, err := readImage(group.RunImage, !b.Publish)
-// 	if err != nil || stackImage == nil {
-// 		return "", packs.FailErr(err, "get image for", group.RunImage)
-// 	}
-//
-// 	var repoStore img.Store
-// 	if b.Publish {
-// 		repoStore, err = img.NewRegistry(b.RepoName)
-// 	} else {
-// 		repoStore, err = img.NewDaemon(b.RepoName)
-// 	}
-// 	if err != nil {
-// 		return "", packs.FailErr(err, "access", b.RepoName)
-// 	}
-//
-// 	exporter := &lifecycle.Exporter{
-// 		Buildpacks: group.Buildpacks,
-// 		TmpDir:     tmpDir,
-// 		Out:        os.Stdout,
-// 		Err:        os.Stderr,
-// 	}
-// 	newImage, err := exporter.Export(
-// 		localLaunchDir,
-// 		stackImage,
-// 		origImage,
-// 	)
-// 	if err != nil {
-// 		return "", packs.FailErrCode(err, packs.CodeFailedBuild)
-// 	}
-//
-// 	if err := repoStore.Write(newImage); err != nil {
-// 		return "", packs.FailErrCode(err, packs.CodeFailedUpdate, "write")
-// 	}
-//
-// 	sha, err := newImage.Digest()
-// 	if err != nil {
-// 		return "", packs.FailErr(err, "calculating image digest")
-// 	}
-//
-// 	return sha.String(), nil
-// }
+func (b *Builder) Export(group lifecycle.BuildpackGroup) (string, error) {
+	tmpDir, err := b.tmpDir("Export")
+	if err != nil {
+		return "", err
+	}
+
+	localLaunchDir, err := b.LaunchVolume.Export("/launch")
+	if err != nil {
+		return "", err
+	}
+
+	origImage, err := readImage(b.RepoName, !b.Publish)
+	if err != nil {
+		return "", err
+	}
+
+	stackImage, err := readImage(group.RunImage, !b.Publish)
+	if err != nil || stackImage == nil {
+		return "", packs.FailErr(err, "get image for", group.RunImage)
+	}
+
+	var repoStore img.Store
+	if b.Publish {
+		repoStore, err = img.NewRegistry(b.RepoName)
+	} else {
+		repoStore, err = img.NewDaemon(b.RepoName)
+	}
+	if err != nil {
+		return "", packs.FailErr(err, "access", b.RepoName)
+	}
+
+	exporter := &lifecycle.Exporter{
+		Buildpacks: group.Buildpacks,
+		TmpDir:     tmpDir,
+		Out:        os.Stdout,
+		Err:        os.Stderr,
+	}
+	newImage, err := exporter.Export(
+		localLaunchDir,
+		stackImage,
+		origImage,
+	)
+	if err != nil {
+		return "", packs.FailErrCode(err, packs.CodeFailedBuild)
+	}
+
+	if err := repoStore.Write(newImage); err != nil {
+		return "", packs.FailErrCode(err, packs.CodeFailedUpdate, "write")
+	}
+
+	sha, err := newImage.Digest()
+	if err != nil {
+		return "", packs.FailErr(err, "calculating image digest")
+	}
+
+	return sha.String(), nil
+}
 
 func (b *Builder) tmpDir(name string) (string, error) {
 	if b.tmpDirBase == "" {
