@@ -83,7 +83,7 @@ func (b *Builder) Detect(detectImage string) (lifecycle.BuildpackGroup, error) {
 }
 
 func (b *Builder) Analyze(repoName string, useDaemon bool, group lifecycle.BuildpackGroup) error {
-	tmpDir, err := b.tmpDir("Analyze")
+	tmpDir, err := b.tmpDir("analyze")
 	if err != nil {
 		return err
 	}
@@ -149,35 +149,43 @@ func (b *Builder) Build(group lifecycle.BuildpackGroup) error {
 	return err
 }
 
-func (b *Builder) Export(group lifecycle.BuildpackGroup) (string, error) {
-	tmpDir, err := b.tmpDir("Export")
+func (b *Builder) Export(repoName string, useDaemon bool, group lifecycle.BuildpackGroup) (string, error) {
+	tmpDir, err := b.tmpDir("export-tmp")
 	if err != nil {
 		return "", err
 	}
 
-	localLaunchDir, err := b.LaunchVolume.Export("/launch")
+	tarLaunchDir, err := b.LaunchVolume.Export("/launch")
 	if err != nil {
 		return "", err
 	}
 
-	origImage, err := readImage(b.RepoName, !b.Publish)
+	localLaunchDir, err := b.tmpDir("export-launch")
+	if err != nil {
+		return "", err
+	}
+	if err := untarReader(tarLaunchDir, localLaunchDir); err != nil {
+		return "", err
+	}
+
+	origImage, err := readImage(repoName, useDaemon)
 	if err != nil {
 		return "", err
 	}
 
-	stackImage, err := readImage(group.RunImage, !b.Publish)
+	stackImage, err := readImage(group.RunImage, useDaemon)
 	if err != nil || stackImage == nil {
 		return "", packs.FailErr(err, "get image for", group.RunImage)
 	}
 
 	var repoStore img.Store
-	if b.Publish {
-		repoStore, err = img.NewRegistry(b.RepoName)
+	if useDaemon {
+		repoStore, err = img.NewDaemon(repoName)
 	} else {
-		repoStore, err = img.NewDaemon(b.RepoName)
+		repoStore, err = img.NewRegistry(repoName)
 	}
 	if err != nil {
-		return "", packs.FailErr(err, "access", b.RepoName)
+		return "", packs.FailErr(err, "access", repoName)
 	}
 
 	exporter := &lifecycle.Exporter{
